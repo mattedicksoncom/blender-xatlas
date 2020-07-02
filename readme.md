@@ -34,4 +34,4 @@ Warning! The tool will make a single user copy and triangulate your mesh
 ```xatlas-blender.cpp```
 
 ## Status
-![Works On My Machine](https://user-images.githubusercontent.com/addWorksOnMyMachineImage)
+![Works On My Machine](works_on_my_machine.png)
