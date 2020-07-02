@@ -26,7 +26,7 @@ project "xatlas-blender"
 	filter "action:vs*"
 		files "xatlas.natvis"
 		postbuildcommands {
-			'xcopy /y \"$(ProjectDir)$(OutDir)$(TargetName)$(TargetExt)\" \"$(ProjectDir)\\..\\addons\\blender_xatlas\\xatlas\"'
+			'xcopy /y \"$(ProjectDir)$(OutDir)$(TargetName)$(TargetExt)\" \"$(ProjectDir)..\\..\\..\\addons\\blender_xatlas\\xatlas\"'
 		}
 	filter "system:linux"
 		links { "pthread" }
