@@ -10,7 +10,7 @@ Code in /xatlas_src is modified from [xatlas](https://github.com/jpcy/xatlas/)
 ## Usage
 
 ### Install
-1. Add ```./addons/blender-xatlas``` to you blender addons folder
+1. Add ```./addons/blender-xatlas``` to you blender addons folder, or download the .zip in releases and install in blender
 2. Once enabled it will appear under the tool option in 3D view
 
 
