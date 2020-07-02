@@ -1,0 +1,6 @@
+**/__pycache__
+**/.vs
+/xatlas_src/Debug
+/xatlas_src/extra/Debug
+*.vcproj*
+*.vcxproj*
