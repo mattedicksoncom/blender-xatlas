@@ -7,8 +7,8 @@ It currently only works on Windows
 Code in /xatlas_src is modified from [xatlas](https://github.com/jpcy/xatlas/)  
 
 <p float="left">
-<img src="./readme_images/comparisons/sponza-xatlas.png" alt="Tool Location" width="450" height="375">
-<img src="./readme_images/comparisons/sponza-xatlas-uv.png" alt="Tool Location" width="450" height="375">
+<img src="./readme_images/comparisons/sponza-xatlas.png" alt="Tool Location" width="400" height="333">
+<img src="./readme_images/comparisons/sponza-xatlas-uv.png" alt="Tool Location" width="400" height="333">
 </p>
 
 
