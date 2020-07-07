@@ -314,8 +314,9 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
             if obj.type == 'MESH':
                 rename_dict[obj.name] = obj.name
                 context.view_layer.objects.active = obj
+                if obj.data.users > 1:
+                    obj.data = obj.data.copy() #make single user copy
                 uv_layers = obj.data.uv_layers
-                obj.data = obj.data.copy() #make single user copy
                 if not "UVMap_Lightmap" in uv_layers:
                     uvmap = uv_layers.new(name="UVMap_Lightmap")
                     uv_layers.active_index = len(uv_layers) - 1
