@@ -182,6 +182,16 @@ bool LoadObj(std::vector<shape_t> &shapes,       // [output]
              const char *filename, const char *mtl_basepath = NULL,
              unsigned int flags = 1);
 
+/// CUSTOM no materials Loads object from a std::istream, uses GetMtlIStreamFn to retrieve
+/// std::istream for materials.
+/// Returns true when loading .obj become success.
+/// Returns warning and error message into `err`
+bool LoadObj(std::vector<shape_t> &shapes,       // [output]
+	std::vector<material_t> &materials, // [output]
+	std::string &err,                   // [output]
+	std::string &inStream,
+	unsigned int flags = 1);
+
 /// Loads object from a std::istream, uses GetMtlIStreamFn to retrieve
 /// std::istream for materials.
 /// Returns true when loading .obj become success.
@@ -191,6 +201,8 @@ bool LoadObj(std::vector<shape_t> &shapes,       // [output]
              std::string &err,                   // [output]
              std::istream &inStream, MaterialReader &readMatFn,
              unsigned int flags = 1);
+
+
 
 /// Loads materials into std::map
 void LoadMtl(std::map<std::string, int> &material_map, // [output]
@@ -978,6 +990,36 @@ bool LoadObj(std::vector<shape_t> &shapes,       // [output]
   MaterialFileReader matFileReader(basePath);
 
   return LoadObj(shapes, materials, err, ifs, matFileReader, flags);
+}
+
+bool LoadObj(
+	std::vector<shape_t> &shapes,       // [output]
+	std::vector<material_t> &materials, // [output]
+	std::string &err,
+	std::string &inStream,
+	unsigned int flags
+) {
+
+	//shapes.clear();
+
+	std::stringstream errss;
+
+	//std::ifstream inStream2(inStream);
+	std::istringstream is(inStream);
+	//inStream2 << inStream;
+	/*if (!ifs) {
+		errss << "Cannot open file [" << filename << "]" << std::endl;
+		err = errss.str();
+		return false;
+	}*/
+
+	std::string basePath;
+	/*if (mtl_basepath) {
+		basePath = "./custom";
+	}*/
+	MaterialFileReader matFileReader(basePath);
+
+	return LoadObj(shapes, materials, err, is, matFileReader, flags);
 }
 
 bool LoadObj(std::vector<shape_t> &shapes,       // [output]

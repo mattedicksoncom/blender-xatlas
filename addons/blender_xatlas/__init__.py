@@ -18,17 +18,36 @@ bl_info = {
 	"author": "mattedickson",
 	"wiki_url": "https://github.com/mattedicksoncom",
 	"tracker_url": "https://github.com/mattedicksoncom",
-	"version": (0, 0, 1),
+	"version": (0, 0, 2),
 	"blender": (2, 83, 0),
 	"location": "3D View > Toolbox",
 	"category": "Object",
 }
 
-import bpy
 import os
+import sys
+import bpy
+import bmesh
+
+from dataclasses import dataclass
+from dataclasses import field
+from typing import List
+
+from io import StringIO
+import struct
+
 import subprocess
+import threading
+from threading  import Thread
+from queue import Queue, Empty
 import string
-import random
+
+
+import importlib
+sys.path.append(__path__)
+from . import export_obj_simple
+
+importlib.reload(export_obj_simple)
 
 
 from bpy.utils import ( register_class, unregister_class )
@@ -49,15 +68,6 @@ from bpy.types import (
 )
 
 addon_name = __name__
-
-# begin utility functions---------------------------
-
-#https://stackoverflow.com/questions/13484726/safe-enough-8-character-short-unique-random-string
-def random_choice():
-    alphabet = string.ascii_lowercase + string.digits
-    return ''.join(random.choices(alphabet, k=8))
-
-# end utility functions---------------------------
 
 
 # begin PropertyGroups---------------------------
@@ -187,12 +197,13 @@ class PG_ChartProperties (PropertyGroup):
 
 # begin operators------------------------------
 #Unwrap Lightmap Group Xatlas
-class Unwrap_Lightmap_Group_Xatlas(bpy.types.Operator):
-    bl_idname = "object.unwrap_lightmap_group_xatlas"
+class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
+    bl_idname = "object.unwrap_lightmap_group_xatlas_2"
     bl_label = "Unwrap Lightmap Group Xatlas"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
+
         #get all the options for xatlas
         packOptions = bpy.context.scene.pack_tool
         chartOptions = bpy.context.scene.chart_tool
@@ -204,6 +215,7 @@ class Unwrap_Lightmap_Group_Xatlas(bpy.types.Operator):
         selected_objects = bpy.context.selected_objects
 
         #check something is actually selected
+        #external function/operator will select them
         if len(selected_objects) == 0:
             print("Nothing Selected")
             return {'FINISHED'}
@@ -211,23 +223,19 @@ class Unwrap_Lightmap_Group_Xatlas(bpy.types.Operator):
         #store the names of objects
         rename_dict = dict();
         
-        #give the objects new unique names and make sure they have lightmap uvs (matches lightmapper naming)
+        #make sure all the objects have ligthmap uvs
         for obj in selected_objects:
             if obj.type == 'MESH':
-                newName = random_choice() + ""
-                rename_dict[newName] = obj.name
-                obj.name = newName
+                rename_dict[obj.name] = obj.name
                 context.view_layer.objects.active = obj
                 uv_layers = obj.data.uv_layers
                 if not "UVMap_Lightmap" in uv_layers:
-                    # print("UVMap made A")
                     uvmap = uv_layers.new(name="UVMap_Lightmap")
                     uv_layers.active_index = len(uv_layers) - 1
                 else:
                     for i in range(0, len(uv_layers)):
                         if uv_layers[i].name == 'UVMap_Lightmap':
                             uv_layers.active_index = i
-                # print("Lightmap shift A")
                 obj.select_set(True)
 
 
@@ -237,24 +245,12 @@ class Unwrap_Lightmap_Group_Xatlas(bpy.types.Operator):
         bpy.ops.mesh.quads_convert_to_tris(quad_method='FIXED', ngon_method='BEAUTY')
         bpy.ops.object.mode_set(mode='OBJECT')
 
-        #get the current folder of the .blend
-        blend_file_path = bpy.data.filepath
-        # directory = os.path.dirname(blend_file_path)
-        directory = bpy.app.tempdir
-
-        #temp folder to the import, export objects
-        dir_path = os.path.join(directory, 'temp_obj');
-        if not os.path.isdir(dir_path):
-            os.mkdir(dir_path)
-
-        #what to call the file
-        target_file = os.path.join(dir_path, 'unwrap_object.obj')
-
-        #actually run the export
-        bpy.ops.export_scene.obj(
-            filepath=target_file,
-            check_existing=True, axis_forward='-Z',
-            axis_up='Y', filter_glob="*.obj;*.mtl",
+        #Create a fake obj export to a string
+        #Will strip this down further later
+        fakeFile = StringIO()
+        export_obj_simple.save(
+            context=bpy.context,
+            filepath=fakeFile,
             use_selection=True,
             use_animation=False,
             use_mesh_modifiers=True,
@@ -271,19 +267,16 @@ class Unwrap_Lightmap_Group_Xatlas(bpy.types.Operator):
             group_by_object=False,
             group_by_material=False,
             keep_vertex_order=False,
-            global_scale=1,
-            path_mode='AUTO'
         )
 
-        #give the bake objects original names
-        for objectName in rename_dict:
-            bpy.context.scene.objects[objectName].name = bpy.context.scene.objects[objectName].name + "_orig"
+        #print just for reference
+        # print(fakeFile.getvalue())
 
         #get the path to xatlas
         file_path = os.path.dirname(os.path.abspath(__file__))
         xatlas_path = os.path.join(file_path, "xatlas", "xatlas-blender.exe")
 
-        #setup the arguments to be passed to xatlas
+        #setup the arguments to be passed to xatlas-------------------
         arguments_string = ""
         for argumentKey in packOptions.__annotations__.keys():
             key_string = str(argumentKey)
@@ -308,48 +301,155 @@ class Unwrap_Lightmap_Group_Xatlas(bpy.types.Operator):
                     arguments_string = arguments_string + " -" + str(argumentKey) + " " + str(attrib)
 
         print(arguments_string)
+        #END setup the arguments to be passed to xatlas-------------------
 
         #RUN xatlas process
-        xatlas_process = subprocess.Popen(xatlas_path + ' ' + target_file +  arguments_string)
-        xatlas_process.wait()
+        xatlas_process = subprocess.Popen(
+            xatlas_path + ' ' + arguments_string,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE
+        )
 
-        # stdin=subprocess.PIPE,
-        # stdout=subprocess.PIPE,
-        # **popen_args)
+        #shove the fake file in stdin
+        stdin = xatlas_process.stdin
+        value = bytes(fakeFile.getvalue() + "\n", 'UTF-8') #The \n is needed to end the input properly
+        stdin.write(value)
+        stdin.flush()
 
-        #import the xatlas result
-        bpy.ops.import_scene.obj(filepath=os.path.join(dir_path, 'unwrap_object.obj_unwrap'))
+        #Get the output from xatlas
+        outObj = ""
+        while True:
+            output = xatlas_process.stdout.readline()
+            if not output:
+                 break
+            outObj = outObj + (output.decode().strip() + "\n")
+
+        #the objects after xatlas processing
+        # print(outObj)
+
+
+        #Setup for reading the output
+        @dataclass
+        class uvObject:
+            obName: string = ""
+            uvArray: List[float] = field(default_factory=list)
+            faceArray: List[int] = field(default_factory=list)
         
-        #copy the uvs from the from the imported xatlas obj to the original objects
-        context.view_layer.objects.active = None
-        import_objects = bpy.context.selected_objects
-        bpy.ops.object.select_all(action='DESELECT')
-        for importObject in import_objects:
-            objectName = importObject.name.split("_")[0] #grab the initial part
+        convertedObjects = []
+        uvArrayComplete = []
 
-            original_object = bpy.context.scene.objects[objectName + "_orig"]
-            original_object.select_set(True)
+        
+        #search through the out put for STARTOBJ
+        #then start reading the objects
+        obTest = None
+        startRead = False
+        for line in outObj.splitlines():
+            
+            line_split = line.split()
 
-            importObject.select_set(True)
-            context.view_layer.objects.active = importObject
-            bpy.ops.object.join_uvs()
-            context.view_layer.objects.active = None
+            if not line_split:
+                continue
+
+            line_start = line_split[0]  # we compare with this a _lot_
+            # print(line_start)
+            if line_start == "STARTOBJ":
+                print("Start reading the objects----------------------------------------")
+                startRead = True
+                # obTest = uvObject()
+            
+            if startRead:
+                #if it's a new obj
+                if line_start == 'o':
+                    #if there is already an object append it
+                    if obTest is not None:
+                        convertedObjects.append(obTest)
+                    
+                    obTest = uvObject() #create new uv object
+                    obTest.obName = line_split[1]
+
+                if obTest is not None:
+                    #the uv coords
+                    if line_start == 'vt':
+                        newUv = [float(line_split[1]),float(line_split[2])]
+                        obTest.uvArray.append(newUv)
+                        uvArrayComplete.append(newUv)
+
+                    #the face coords index
+                    #faces are 1 indexed
+                    if line_start == 'f':
+                        #vert/uv/normal
+                        #only need the uvs
+                        newFace = [
+                            int(line_split[1].split("/")[1]),
+                            int(line_split[2].split("/")[1]),
+                            int(line_split[3].split("/")[1])
+                        ]
+                        obTest.faceArray.append(newFace)
+
+        #append the final object
+        convertedObjects.append(obTest)
+        # print(convertedObjects)
+        
+        
+        #apply the output-------------------------------------------------------------
+        #copy the uvs to the original objects
+        # objIndex = 0
+        print("Applying the UVs----------------------------------------")
+        for importObject in convertedObjects:
             bpy.ops.object.select_all(action='DESELECT')
-            #delete the copy
-            importObject.select_set(True)
-            bpy.ops.object.delete() 
 
+            obTest = importObject
 
-        #give the objects bake their original names and select them again
+            bpy.context.scene.objects[obTest.obName].select_set(True)
+            context.view_layer.objects.active = bpy.context.scene.objects[obTest.obName]
+            bpy.ops.object.mode_set(mode = 'OBJECT')
+
+            obj = bpy.context.active_object
+            me = obj.data
+            #convert to bmesh to create the new uvs
+            bm = bmesh.new()
+            bm.from_mesh(me)
+
+            uv_layer = bm.loops.layers.uv.verify()
+
+            nFaces = len(bm.faces)
+            #need to ensure lookup table for some reason?
+            if hasattr(bm.faces, "ensure_lookup_table"): 
+                bm.faces.ensure_lookup_table()
+
+            #loop through the faces
+            for faceIndex in range(nFaces):
+                faceGroup = obTest.faceArray[faceIndex]
+
+                bm.faces[faceIndex].loops[0][uv_layer].uv = (
+                    uvArrayComplete[faceGroup[0] - 1][0],
+                    uvArrayComplete[faceGroup[0] - 1][1])
+
+                bm.faces[faceIndex].loops[1][uv_layer].uv = (
+                    uvArrayComplete[faceGroup[1] - 1][0],
+                    uvArrayComplete[faceGroup[1] - 1][1])
+
+                bm.faces[faceIndex].loops[2][uv_layer].uv = (
+                    uvArrayComplete[faceGroup[2] - 1][0],
+                    uvArrayComplete[faceGroup[2] - 1][1])
+
+                # objIndex = objIndex + 3
+
+            # print(objIndex)
+            #assign the mesh back to the original mesh
+            bm.to_mesh(me)
+        #END apply the output-------------------------------------------------------------
+
+        #select the original objects that were selected
         for objectName in rename_dict:
-            if objectName + "_orig" in bpy.context.scene.objects:
-                current_object = bpy.context.scene.objects[objectName + "_orig"]
-                bpy.context.scene.objects[objectName + "_orig"].name = rename_dict[objectName]
+            if objectName in bpy.context.scene.objects:
+                current_object = bpy.context.scene.objects[objectName]
                 current_object.select_set(True)
                 context.view_layer.objects.active = current_object
         
         bpy.ops.object.mode_set(mode=startingMode)
 
+        print("Finished Xatlas----------------------------------------")
         return {'FINISHED'}
 
 # end operators------------------------------
@@ -388,7 +488,7 @@ class OBJECT_PT_xatlas_panel (Panel):
 
         box = layout.box()
         label = box.label(text="Run")
-        box.operator("object.unwrap_lightmap_group_xatlas", text="Run Xatlas")
+        box.operator("object.unwrap_lightmap_group_xatlas_2", text="Run Xatlas")
 
 # end panels------------------------------
 
@@ -397,10 +497,11 @@ class OBJECT_PT_xatlas_panel (Panel):
 
 
 # begin setup------------------------------
+
 classes = (
     PG_PackProperties,
     PG_ChartProperties,
-    Unwrap_Lightmap_Group_Xatlas,
+    Unwrap_Lightmap_Group_Xatlas_2,
     OBJECT_PT_xatlas_panel,
 )
 
@@ -409,8 +510,11 @@ def register():
     for cls in classes:
         register_class(cls)
     #
+
     bpy.types.Scene.pack_tool = PointerProperty(type=PG_PackProperties)
     bpy.types.Scene.chart_tool = PointerProperty(type=PG_ChartProperties)
+
+    
 
     #
 
@@ -419,8 +523,11 @@ def unregister():
     for cls in reversed(classes):
         unregister_class(cls)
     #
+
+    
     del bpy.types.Scene.chart_tool
     del bpy.types.Scene.pack_tool
+    
 
 
 

@@ -25,6 +25,10 @@ SOFTWARE.
 #include <stdarg.h>
 #include <stdio.h>
 #include <time.h>
+#include <iostream>
+
+#include <thread>
+#include <chrono>
 
 #include <sstream>
 
@@ -123,9 +127,47 @@ static bool checkArgumentFloat(char *argv[], int index, char *comp_arg) {
 	return false;
 }
 
+//static void fakePrintf(std::string printString, ) {
+//	std::string printCode = (std::string)0;
+//	printCode.append(printString);
+//	printf(printCode, );
+//}
+
 int main(int argc, char *argv[])
 {
-	if (argc < 2) {
+	std::string meshInput;
+	std::string line;
+
+	//read all the mesh input
+	while (std::getline(std::cin, line) && !line.empty()) {
+		meshInput.append(line);
+		meshInput.append("\n");
+	}
+
+	//printf("Loading '%s'...\n", argv[1]);
+	printf("Loading Mesh from stdin...\n");
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+	std::vector<tinyobj::MaterialReader> matReader;
+	std::string err;
+
+	if (!tinyobj::LoadObj(
+			shapes,
+			materials,
+			err,
+			meshInput,
+			tinyobj::triangulation
+	)) {
+		printf("Error: %s\n", err.c_str());
+		return EXIT_FAILURE;
+	}
+
+	//print the amount of shapes if working
+	//std::cout << (int)shapes.size() << std::endl;
+
+	//std::cout << "exit" << std::endl;
+
+	if (argc < 1) {
 	    printf("Usage: %s input_file.obj [options]\n", argv[0]);
 		printf("  Options:\n");
 		printf("    -verbose\n");  
@@ -143,7 +185,7 @@ int main(int argc, char *argv[])
 
 	//printf("Before check\n");
 	//check all the arguments
-	if (argc >= 3) {
+	if (argc >= 2) {
 		for (int counter = 2; counter < argc; counter++) {
 			//pack options-------------------------------------
 			//resolution
@@ -218,14 +260,6 @@ int main(int argc, char *argv[])
 	
 
 	// Load object file.
-	printf("Loading '%s'...\n", argv[1]);
-	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materials;
-	std::string err;
-	if (!tinyobj::LoadObj(shapes, materials, err, argv[1], NULL, tinyobj::triangulation)) {
-		printf("Error: %s\n", err.c_str());
-		return EXIT_FAILURE;
-	}
 	if (shapes.size() == 0) {
 		printf("Error: no shapes in obj file\n");
 		return EXIT_FAILURE;
@@ -291,44 +325,42 @@ int main(int argc, char *argv[])
 	printf("   %u total vertices\n", totalVertices);
 	printf("   %u total triangles\n", totalFaces);
 	printf("%.2f seconds (%g ms) elapsed total\n", globalStopwatch.elapsed() / 1000.0, globalStopwatch.elapsed());
+
 	// Write meshes.
-	//const char *modelFilename = "example_output.obj";
-	std::string filePath = argv[1];
-	std::string filePathExtra = "_unwrap";
-	std::string fileCombo = filePath + filePathExtra;
-	const char *modelFilename = fileCombo.c_str();
-	printf("Writing '%s'...\n", modelFilename);
-	FILE *file;
-	FOPEN(file, modelFilename, "w");
-	if (file) {
-		uint32_t firstVertex = 0;
-		for (uint32_t i = 0; i < atlas->meshCount; i++) {
-			const xatlas::Mesh &mesh = atlas->meshes[i];
-			for (uint32_t v = 0; v < mesh.vertexCount; v++) {
-				const xatlas::Vertex &vertex = mesh.vertexArray[v];
-				const float *pos = &shapes[i].mesh.positions[vertex.xref * 3];
-				fprintf(file, "v %g %g %g\n", pos[0], pos[1], pos[2]);
-				if (!shapes[i].mesh.normals.empty()) {
-					const float *normal = &shapes[i].mesh.normals[vertex.xref * 3];
-					fprintf(file, "vn %g %g %g\n", normal[0], normal[1], normal[2]);
-				}
-				fprintf(file, "vt %g %g\n", vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height);
+	printf("STARTOBJ\n");
+	uint32_t firstVertex = 0;
+	for (uint32_t i = 0; i < atlas->meshCount; i++) {
+		const xatlas::Mesh &mesh = atlas->meshes[i];
+		printf("o %s\n", shapes[i].name.c_str());
+		printf("s off\n");
+		for (uint32_t v = 0; v < mesh.vertexCount; v++) {
+			const xatlas::Vertex &vertex = mesh.vertexArray[v];
+			const float *pos = &shapes[i].mesh.positions[vertex.xref * 3];
+			printf("v %g %g %g\n", pos[0], pos[1], pos[2]);
+			if (!shapes[i].mesh.normals.empty()) {
+				const float *normal = &shapes[i].mesh.normals[vertex.xref * 3];
+				printf("vn %g %g %g\n", normal[0], normal[1], normal[2]);
 			}
-			fprintf(file, "o %s\n", shapes[i].name.c_str());
-			fprintf(file, "s off\n");
-			for (uint32_t f = 0; f < mesh.indexCount; f += 3) {
-				fprintf(file, "f ");
-				for (uint32_t j = 0; j < 3; j++) {
-					const uint32_t index = firstVertex + mesh.indexArray[f + j] + 1; // 1-indexed
-					fprintf(file, "%d/%d/%d%c", index, index, index, j == 2 ? '\n' : ' ');
-				}
-			}
-			firstVertex += mesh.vertexCount;
+			printf("vt %g %g\n", vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height);
 		}
-		fclose(file);
+			
+		for (uint32_t f = 0; f < mesh.indexCount; f += 3) {
+			printf("f ");
+			for (uint32_t j = 0; j < 3; j++) {
+				const uint32_t index = firstVertex + mesh.indexArray[f + j] + 1; // 1-indexed
+				printf("%d/%d/%d%c", index, index, index, j == 2 ? '\n' : ' ');
+			}
+		}
+		firstVertex += mesh.vertexCount;
 	}
+
+
 	// Cleanup.
 	xatlas::Destroy(atlas);
 	printf("Done\n");
+
+	//flush the output
+	std::cout.flush();
+
 	return EXIT_SUCCESS;
 }
