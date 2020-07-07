@@ -182,11 +182,25 @@ int main(int argc, char *argv[])
 	//printf("Settings\n");
 	xatlas::ChartOptions chartOptions;
 	xatlas::PackOptions packOptions;
+	enum class AtlasLayout { overlap, spreadX };
+	AtlasLayout atlasLayout = AtlasLayout::overlap;
+
 
 	//printf("Before check\n");
 	//check all the arguments
 	if (argc >= 2) {
 		for (int counter = 2; counter < argc; counter++) {
+			//shared options-------------------------------------
+			//atlasLayout
+			if (STRICMP(argv[counter], "-atlasLayout") == 0) {
+				if (STRICMP(argv[counter + 1], "OVERLAP")) {
+					atlasLayout = AtlasLayout::overlap;
+				}
+				if (STRICMP(argv[counter + 1], "SPREADX") == 0) {
+					atlasLayout = AtlasLayout::spreadX;
+				}
+			}
+
 			//pack options-------------------------------------
 			//resolution
 			if (checkArgumentInt(argv, counter, "-resolution")) {
@@ -332,16 +346,24 @@ int main(int argc, char *argv[])
 	for (uint32_t i = 0; i < atlas->meshCount; i++) {
 		const xatlas::Mesh &mesh = atlas->meshes[i];
 		printf("o %s\n", shapes[i].name.c_str());
+		//printf("cc %i\n", mesh.chartCount);
 		printf("s off\n");
 		for (uint32_t v = 0; v < mesh.vertexCount; v++) {
 			const xatlas::Vertex &vertex = mesh.vertexArray[v];
+
+			float xOffset = 0;
+			//spread the uv axis along the x-axis
+			if (vertex.atlasIndex > 0 && atlasLayout == AtlasLayout::spreadX) {
+				xOffset = (float)vertex.atlasIndex;
+			}
+
 			const float *pos = &shapes[i].mesh.positions[vertex.xref * 3];
-			printf("v %g %g %g\n", pos[0], pos[1], pos[2]);
+			//printf("v %g %g %g\n", pos[0], pos[1], pos[2]);
 			if (!shapes[i].mesh.normals.empty()) {
 				const float *normal = &shapes[i].mesh.normals[vertex.xref * 3];
-				printf("vn %g %g %g\n", normal[0], normal[1], normal[2]);
+				//printf("vn %g %g %g\n", normal[0], normal[1], normal[2]);
 			}
-			printf("vt %g %g\n", vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height);
+			printf("vt %g %g\n", (vertex.uv[0] / atlas->width) + xOffset, vertex.uv[1] / atlas->height);
 		}
 			
 		for (uint32_t f = 0; f < mesh.indexCount; f += 3) {

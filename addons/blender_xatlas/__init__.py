@@ -212,6 +212,14 @@ class PG_SharedProperties (PropertyGroup):
                ]
         )
 
+    atlasLayout = EnumProperty(
+        name="",
+        description="How to Layout the atlases",
+        items=[ ('OVERLAP', "Overlap", "Overlap all the atlases"),
+                ('SPREADX', "Spread x", "Seperate each atlas along the x-axis"),
+               ]
+        )
+
     selectedCollection = EnumProperty(
         name="",
         items = get_collectionNames
@@ -261,11 +269,12 @@ class Setup_Unwrap(bpy.types.Operator):
 
         #reset everything--------------------------------------------
         bpy.ops.object.select_all(action='DESELECT')
-        bpy.ops.object.mode_set(mode=startingMode)
-        # bpy.context.selected_objects = startingSelection
         for objects in startingSelection:
             objects.select_set(True)
         context.view_layer.objects.active = startingActiveObject
+        bpy.ops.object.mode_set(mode=startingMode)
+        # bpy.context.selected_objects = startingSelection
+        
 
         return {'FINISHED'}
 
@@ -276,6 +285,8 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
+        #will attempt to run on all selected objects
+        #it is up to something else to do that selecting
 
         #get all the options for xatlas
         packOptions = bpy.context.scene.pack_tool
@@ -375,6 +386,10 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
                 else:
                     arguments_string = arguments_string + " -" + str(argumentKey) + " " + str(attrib)
 
+        
+
+        arguments_string = arguments_string + " -atlasLayout" + " " + sharedProperties.atlasLayout
+
         print(arguments_string)
         #END setup the arguments to be passed to xatlas-------------------
 
@@ -470,6 +485,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
         #copy the uvs to the original objects
         # objIndex = 0
         print("Applying the UVs----------------------------------------")
+        # print(convertedObjects)
         for importObject in convertedObjects:
             bpy.ops.object.select_all(action='DESELECT')
 
@@ -564,6 +580,7 @@ class OBJECT_PT_xatlas_panel (Panel):
         box = layout.box()
         label = box.label(text="Run")
         box.prop( scene.shared_properties, 'unwrapSelection')
+        box.prop( scene.shared_properties, 'atlasLayout')
         if scene.shared_properties.unwrapSelection == "COLLECTION":
             box.prop( scene.shared_properties, 'selectedCollection')
         box.operator("object.setup_unwrap", text="Run Xatlas")
