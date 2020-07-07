@@ -193,9 +193,82 @@ class PG_ChartProperties (PropertyGroup):
         max = 1000
         )
 
+
+
+def get_collectionNames(self, context):
+    colllectionNames = [];
+    for collection in bpy.data.collections:
+        colllectionNames.append((collection.name, collection.name, ""))
+    return colllectionNames;
+
+class PG_SharedProperties (PropertyGroup):
+
+    unwrapSelection = EnumProperty(
+        name="",
+        description="Which Objects to unwrap",
+        items=[ ('SELECTED', "Selection", ""),
+                ('ALL', "All", ""),
+                ('COLLECTION', "Collection", ""),
+               ]
+        )
+
+    selectedCollection = EnumProperty(
+        name="",
+        items = get_collectionNames
+    )
+    
+
 # end PropertyGroups---------------------------
 
 # begin operators------------------------------
+class Setup_Unwrap(bpy.types.Operator):
+    bl_idname = "object.setup_unwrap"
+    bl_label = "Select the objects to be unwrapped"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        sharedProperties = bpy.context.scene.shared_properties
+        #sharedProperties.unwrapSelection
+
+        #save whatever mode the user was in
+        startingMode = bpy.context.object.mode
+        startingSelection = bpy.context.selected_objects
+        startingActiveObject = context.view_layer.objects.active
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+        #get all the currently selected objects
+        selected_objects = None
+        if sharedProperties.unwrapSelection == 'SELECTED':
+            selected_objects = bpy.context.selected_objects
+        elif sharedProperties.unwrapSelection == 'ALL':
+            bpy.ops.object.select_all(action='DESELECT')
+            for object in bpy.context.scene.objects:
+                current_object = object
+                if current_object.type == 'MESH':
+                    current_object.select_set(True)
+            selected_objects = bpy.context.selected_objects
+        elif sharedProperties.unwrapSelection == 'COLLECTION':
+            bpy.ops.object.select_all(action='DESELECT')
+            for collection in bpy.data.collections:
+                # print(collection.name)
+                if collection.name == sharedProperties.selectedCollection:
+                    for current_object in collection.all_objects:
+                        if current_object.type == 'MESH':
+                            current_object.select_set(True)
+            selected_objects = bpy.context.selected_objects
+
+        Unwrap_Lightmap_Group_Xatlas_2.execute(self, context)
+
+        #reset everything--------------------------------------------
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.ops.object.mode_set(mode=startingMode)
+        # bpy.context.selected_objects = startingSelection
+        for objects in startingSelection:
+            objects.select_set(True)
+        context.view_layer.objects.active = startingActiveObject
+
+        return {'FINISHED'}
+
 #Unwrap Lightmap Group Xatlas
 class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
     bl_idname = "object.unwrap_lightmap_group_xatlas_2"
@@ -208,10 +281,11 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
         packOptions = bpy.context.scene.pack_tool
         chartOptions = bpy.context.scene.chart_tool
 
+        sharedProperties = bpy.context.scene.shared_properties
+        #sharedProperties.unwrapSelection
+
         #save whatever mode the user was in
         startingMode = bpy.context.object.mode
-
-        #get all the currently selected objects
         selected_objects = bpy.context.selected_objects
 
         #check something is actually selected
@@ -489,7 +563,10 @@ class OBJECT_PT_xatlas_panel (Panel):
 
         box = layout.box()
         label = box.label(text="Run")
-        box.operator("object.unwrap_lightmap_group_xatlas_2", text="Run Xatlas")
+        box.prop( scene.shared_properties, 'unwrapSelection')
+        if scene.shared_properties.unwrapSelection == "COLLECTION":
+            box.prop( scene.shared_properties, 'selectedCollection')
+        box.operator("object.setup_unwrap", text="Run Xatlas")
 
 # end panels------------------------------
 
@@ -500,8 +577,10 @@ class OBJECT_PT_xatlas_panel (Panel):
 # begin setup------------------------------
 
 classes = (
+    PG_SharedProperties,
     PG_PackProperties,
     PG_ChartProperties,
+    Setup_Unwrap,
     Unwrap_Lightmap_Group_Xatlas_2,
     OBJECT_PT_xatlas_panel,
 )
@@ -514,6 +593,7 @@ def register():
 
     bpy.types.Scene.pack_tool = PointerProperty(type=PG_PackProperties)
     bpy.types.Scene.chart_tool = PointerProperty(type=PG_ChartProperties)
+    bpy.types.Scene.shared_properties = PointerProperty(type=PG_SharedProperties)
 
     
 
@@ -525,9 +605,10 @@ def unregister():
         unregister_class(cls)
     #
 
-    
+    del bpy.types.Scene.shared_properties
     del bpy.types.Scene.chart_tool
     del bpy.types.Scene.pack_tool
+    
     
 
 
