@@ -25,6 +25,10 @@ SOFTWARE.
 #include <stdarg.h>
 #include <stdio.h>
 #include <time.h>
+#include <iostream>
+
+#include <thread>
+#include <chrono>
 
 #include <sstream>
 
@@ -123,9 +127,81 @@ static bool checkArgumentFloat(char *argv[], int index, char *comp_arg) {
 	return false;
 }
 
+//static void fakePrintf(std::string printString, ) {
+//	std::string printCode = (std::string)0;
+//	printCode.append(printString);
+//	printf(printCode, );
+//}
+
 int main(int argc, char *argv[])
 {
-	if (argc < 2) {
+	std::string meshInput;
+	std::string line;
+
+	//std::istream meshInput2;
+	//std::string meshInput2;
+	//printf("0Xatlas waiting for input\n");
+	//std::cin >> meshInput;
+	//std::cin.ignore();
+	//std::getline(std::cin >> std::ws, meshInput);
+	//std::getline(std::cin >> std::ws, meshInput2);
+
+	while (std::getline(std::cin, line) && !line.empty()) {
+		//std::cout << line << std::endl;
+		//meshInput = meshInput + line + "\n";
+		meshInput.append(line);
+		meshInput.append("\n");
+		//meshInput >> line;
+		//std::cout << line << std::endl;
+		//std::cout << "looping" << std::endl;
+	}
+
+	//std::istream meshInput2;
+
+	//std::istream *inStream;
+	//meshInput2 << std::cin.rdbuf();
+
+	//inStream = &std::cin;
+
+	//printf("Loading '%s'...\n", argv[1]);
+	printf("Loading Mesh from stdin...\n");
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+	std::vector<tinyobj::MaterialReader> matReader;
+	std::string err;
+
+	//  std::vector<shape_t> &shapes,       // [output]
+	//	std::vector<material_t> &materials, // [output]
+	//	std::string &err,                   // [output]
+	//	std::istream &inStream,
+	//  MaterialReader &readMatFn,
+	//	unsigned int flags = 1
+
+	if (!tinyobj::LoadObj(
+			shapes,
+			materials,
+			err,
+			meshInput,
+			tinyobj::triangulation
+	)) {
+		printf("Error: %s\n", err.c_str());
+		return EXIT_FAILURE;
+	}
+
+	//print the amount of shapes if working
+	std::cout << (int)shapes.size() << std::endl;
+
+	std::cout << "exit" << std::endl;
+	//printf("0%s -------------------------------\n", meshInput.c_str());
+
+	//std::cout << "0RESULT MESSAGE!!!\n";
+	//std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+	//printf("%s", meshInput);
+	
+	
+	//return EXIT_SUCCESS;
+
+	if (argc < 1) {
 	    printf("Usage: %s input_file.obj [options]\n", argv[0]);
 		printf("  Options:\n");
 		printf("    -verbose\n");  
@@ -136,6 +212,13 @@ int main(int argc, char *argv[])
 	// compare arg2 with -verbose
 	s_verbose = (argc >= 3 && STRICMP(argv[2], "-verbose") == 0);
 
+	printf("\n\ntest ints\n");
+	printf("1");
+	printf("\n");
+	printf("2");
+	printf("\n");
+	printf("test ints end\n\n");
+
 	//settings
 	//printf("Settings\n");
 	xatlas::ChartOptions chartOptions;
@@ -143,7 +226,7 @@ int main(int argc, char *argv[])
 
 	//printf("Before check\n");
 	//check all the arguments
-	if (argc >= 3) {
+	if (argc >= 2) {
 		for (int counter = 2; counter < argc; counter++) {
 			//pack options-------------------------------------
 			//resolution
@@ -219,13 +302,13 @@ int main(int argc, char *argv[])
 
 	// Load object file.
 	printf("Loading '%s'...\n", argv[1]);
-	std::vector<tinyobj::shape_t> shapes;
+	/*std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
-	std::string err;
-	if (!tinyobj::LoadObj(shapes, materials, err, argv[1], NULL, tinyobj::triangulation)) {
+	std::string err;*/
+	/*if (!tinyobj::LoadObj(shapes, materials, err, argv[1], NULL, tinyobj::triangulation)) {
 		printf("Error: %s\n", err.c_str());
 		return EXIT_FAILURE;
-	}
+	}*/
 	if (shapes.size() == 0) {
 		printf("Error: no shapes in obj file\n");
 		return EXIT_FAILURE;
@@ -293,42 +376,80 @@ int main(int argc, char *argv[])
 	printf("%.2f seconds (%g ms) elapsed total\n", globalStopwatch.elapsed() / 1000.0, globalStopwatch.elapsed());
 	// Write meshes.
 	//const char *modelFilename = "example_output.obj";
-	std::string filePath = argv[1];
-	std::string filePathExtra = "_unwrap";
-	std::string fileCombo = filePath + filePathExtra;
-	const char *modelFilename = fileCombo.c_str();
-	printf("Writing '%s'...\n", modelFilename);
-	FILE *file;
-	FOPEN(file, modelFilename, "w");
-	if (file) {
+	//std::string filePath = argv[1];
+	//std::string filePathExtra = "_unwrap";
+	//std::string fileCombo = filePath + filePathExtra;
+	//const char *modelFilename = fileCombo.c_str();
+	//printf("Writing '%s'...\n", modelFilename);
+
+	printf("STARTOBJ\n");
+	//FILE *file;
+	//FOPEN(file, modelFilename, "w");
+	//if (file) {
 		uint32_t firstVertex = 0;
 		for (uint32_t i = 0; i < atlas->meshCount; i++) {
 			const xatlas::Mesh &mesh = atlas->meshes[i];
+			printf("o %s\n", shapes[i].name.c_str());
+			printf("s off\n");
 			for (uint32_t v = 0; v < mesh.vertexCount; v++) {
 				const xatlas::Vertex &vertex = mesh.vertexArray[v];
 				const float *pos = &shapes[i].mesh.positions[vertex.xref * 3];
-				fprintf(file, "v %g %g %g\n", pos[0], pos[1], pos[2]);
+				printf("v %g %g %g\n", pos[0], pos[1], pos[2]);
 				if (!shapes[i].mesh.normals.empty()) {
 					const float *normal = &shapes[i].mesh.normals[vertex.xref * 3];
-					fprintf(file, "vn %g %g %g\n", normal[0], normal[1], normal[2]);
+					printf("vn %g %g %g\n", normal[0], normal[1], normal[2]);
 				}
-				fprintf(file, "vt %g %g\n", vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height);
+				printf("vt %g %g\n", vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height);
 			}
-			fprintf(file, "o %s\n", shapes[i].name.c_str());
-			fprintf(file, "s off\n");
+			
 			for (uint32_t f = 0; f < mesh.indexCount; f += 3) {
-				fprintf(file, "f ");
+				printf("f ");
 				for (uint32_t j = 0; j < 3; j++) {
 					const uint32_t index = firstVertex + mesh.indexArray[f + j] + 1; // 1-indexed
-					fprintf(file, "%d/%d/%d%c", index, index, index, j == 2 ? '\n' : ' ');
+					printf("%d/%d/%d%c", index, index, index, j == 2 ? '\n' : ' ');
 				}
 			}
 			firstVertex += mesh.vertexCount;
 		}
-		fclose(file);
-	}
+		//fclose(file);
+	//}
+		//if (file) {
+		//uint32_t firstVertex = 0;
+		//for (uint32_t i = 0; i < atlas->meshCount; i++) {
+		//	const xatlas::Mesh &mesh = atlas->meshes[i];
+		//	for (uint32_t v = 0; v < mesh.vertexCount; v++) {
+		//		const xatlas::Vertex &vertex = mesh.vertexArray[v];
+		//		const float *pos = &shapes[i].mesh.positions[vertex.xref * 3];
+		//		fprintf(file, "v %g %g %g\n", pos[0], pos[1], pos[2]);
+		//		if (!shapes[i].mesh.normals.empty()) {
+		//			const float *normal = &shapes[i].mesh.normals[vertex.xref * 3];
+		//			fprintf(file, "vn %g %g %g\n", normal[0], normal[1], normal[2]);
+		//		}
+		//		fprintf(file, "vt %g %g\n", vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height);
+		//	}
+		//	fprintf(file, "o %s\n", shapes[i].name.c_str());
+		//	fprintf(file, "s off\n");
+		//	for (uint32_t f = 0; f < mesh.indexCount; f += 3) {
+		//		fprintf(file, "f ");
+		//		for (uint32_t j = 0; j < 3; j++) {
+		//			const uint32_t index = firstVertex + mesh.indexArray[f + j] + 1; // 1-indexed
+		//			fprintf(file, "%d/%d/%d%c", index, index, index, j == 2 ? '\n' : ' ');
+		//		}
+		//	}
+		//	firstVertex += mesh.vertexCount;
+		//}
+		//fclose(file);
+		//}
 	// Cleanup.
 	xatlas::Destroy(atlas);
 	printf("Done\n");
+
+	
+	//this is the good stuff
+	//std::cout << meshInput << std::endl;
+	//std::cout.flush();
+	//std::cout << meshInput2 + "\n";
+	std::cout.flush();
+
 	return EXIT_SUCCESS;
 }
