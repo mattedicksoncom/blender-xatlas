@@ -6,6 +6,11 @@ This is a rough addon for blender allowing you to use xatlas to unwrap and pack 
 It currently only works on Windows  
 Code in /xatlas_src is modified from [xatlas](https://github.com/jpcy/xatlas/)  
 
+<p float="left">
+<img src="./readme_images/comparisons/sponza-xatlas.png" alt="Tool Location" width="450" height="375">
+<img src="./readme_images/comparisons/sponza-xatlas-uv.png" alt="Tool Location" width="450" height="375">
+</p>
+
 
 ## Usage
 
