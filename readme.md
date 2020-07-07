@@ -16,6 +16,7 @@ Code in /xatlas_src is modified from [xatlas](https://github.com/jpcy/xatlas/)
 
 ### Use
 Warning! The tool will make a single user copy and triangulate your mesh
+![Tool Location](./readme_images/tool-location.png)
 1. Make sure you file is saved
 2. Change your settings under Xatlas Tools
 3. Select the objects you wish to unwrap and unpack
