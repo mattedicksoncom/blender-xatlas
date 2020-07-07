@@ -18,7 +18,7 @@ bl_info = {
 	"author": "mattedickson",
 	"wiki_url": "https://github.com/mattedicksoncom/blender-xatlas/",
 	"tracker_url": "https://github.com/mattedicksoncom/blender-xatlas/issues",
-	"version": (0, 0, 2),
+	"version": (0, 0, 3),
 	"blender": (2, 83, 0),
 	"location": "3D View > Toolbox",
 	"category": "Object",
@@ -315,6 +315,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
                 rename_dict[obj.name] = obj.name
                 context.view_layer.objects.active = obj
                 uv_layers = obj.data.uv_layers
+                obj.data = obj.data.copy() #make single user copy
                 if not "UVMap_Lightmap" in uv_layers:
                     uvmap = uv_layers.new(name="UVMap_Lightmap")
                     uv_layers.active_index = len(uv_layers) - 1
