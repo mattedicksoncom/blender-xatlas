@@ -18,7 +18,7 @@ bl_info = {
 	"author": "mattedickson",
 	"wiki_url": "https://github.com/mattedicksoncom",
 	"tracker_url": "https://github.com/mattedicksoncom",
-	"version": (0, 0, 1),
+	"version": (0, 0, 2),
 	"blender": (2, 83, 0),
 	"location": "3D View > Toolbox",
 	"category": "Object",
@@ -28,7 +28,6 @@ import os
 import sys
 import bpy
 import bmesh
-from random import random
 
 from dataclasses import dataclass
 from dataclasses import field
@@ -41,15 +40,8 @@ import subprocess
 import threading
 from threading  import Thread
 from queue import Queue, Empty
-import time
 import string
-import random
 
-import pickle
-
-# from export_obj_simple import save
-# export_obj_simple = __import__(export_obj_simple
-# import export_obj_simple
 
 import importlib
 sys.path.append(__path__)
@@ -76,15 +68,6 @@ from bpy.types import (
 )
 
 addon_name = __name__
-
-# begin utility functions---------------------------
-
-#https://stackoverflow.com/questions/13484726/safe-enough-8-character-short-unique-random-string
-def random_choice():
-    alphabet = string.ascii_lowercase + string.digits
-    return ''.join(random.choices(alphabet, k=8))
-
-# end utility functions---------------------------
 
 
 # begin PropertyGroups---------------------------
@@ -287,7 +270,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
         )
 
         #print just for reference
-        print(fakeFile.getvalue())
+        # print(fakeFile.getvalue())
 
         #get the path to xatlas
         file_path = os.path.dirname(os.path.abspath(__file__))
@@ -341,7 +324,8 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
                  break
             outObj = outObj + (output.decode().strip() + "\n")
 
-        print(outObj)
+        #the objects after xatlas processing
+        # print(outObj)
 
 
         #Setup for reading the output
@@ -513,8 +497,6 @@ class OBJECT_PT_xatlas_panel (Panel):
 
 
 # begin setup------------------------------
-# Import Operators
-#from .export_obj_simple import CONSOLE_OBJ_2
 
 classes = (
     PG_PackProperties,
@@ -529,7 +511,6 @@ def register():
         register_class(cls)
     #
 
-    # bpy.types.Scene.save_obj_console = PointerProperty(type=CONSOLE_OBJ_2)
     bpy.types.Scene.pack_tool = PointerProperty(type=PG_PackProperties)
     bpy.types.Scene.chart_tool = PointerProperty(type=PG_ChartProperties)
 
@@ -546,7 +527,6 @@ def unregister():
     
     del bpy.types.Scene.chart_tool
     del bpy.types.Scene.pack_tool
-    # del bpy.types.Scene.save_obj_console
     
 
 
