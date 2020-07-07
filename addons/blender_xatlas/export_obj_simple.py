@@ -47,192 +47,6 @@ def mesh_triangulate(me):
     bm.free()
 
 
-def write_mtl(scene, filepath, path_mode, copy_set, mtl_dict):
-    source_dir = os.path.dirname(bpy.data.filepath)
-    dest_dir = os.path.dirname(filepath)
-
-    with open(filepath, "w", encoding="utf8", newline="\n") as f:
-        fw = f.write
-
-        fw('# Blender MTL File: %r\n' % (os.path.basename(bpy.data.filepath) or "None"))
-        fw('# Material Count: %i\n' % len(mtl_dict))
-
-        mtl_dict_values = list(mtl_dict.values())
-        mtl_dict_values.sort(key=lambda m: m[0])
-
-        # Write material/image combinations we have used.
-        # Using mtl_dict.values() directly gives un-predictable order.
-        for mtl_mat_name, mat in mtl_dict_values:
-            # Get the Blender data for the material and the image.
-            # Having an image named None will make a bug, dont do it :)
-
-            fw('\nnewmtl %s\n' % mtl_mat_name)  # Define a new material: matname_imgname
-
-            mat_wrap = node_shader_utils.PrincipledBSDFWrapper(mat) if mat else None
-
-            if mat_wrap:
-                use_mirror = mat_wrap.metallic != 0.0
-                use_transparency = mat_wrap.alpha != 1.0
-
-                # XXX Totally empirical conversion, trying to adapt it
-                #     (from 1.0 - 0.0 Principled BSDF range to 0.0 - 900.0 OBJ specular exponent range)...
-                spec = (1.0 - mat_wrap.roughness) * 30
-                spec *= spec
-                fw('Ns %.6f\n' % spec)
-
-                # Ambient
-                if use_mirror:
-                    fw('Ka %.6f %.6f %.6f\n' % (mat_wrap.metallic, mat_wrap.metallic, mat_wrap.metallic))
-                else:
-                    fw('Ka %.6f %.6f %.6f\n' % (1.0, 1.0, 1.0))
-                fw('Kd %.6f %.6f %.6f\n' % mat_wrap.base_color[:3])  # Diffuse
-                # XXX TODO Find a way to handle tint and diffuse color, in a consistent way with import...
-                fw('Ks %.6f %.6f %.6f\n' % (mat_wrap.specular, mat_wrap.specular, mat_wrap.specular))  # Specular
-                # Emission, not in original MTL standard but seems pretty common, see T45766.
-                fw('Ke %.6f %.6f %.6f\n' % mat_wrap.emission_color[:3])
-                fw('Ni %.6f\n' % mat_wrap.ior)  # Refraction index
-                fw('d %.6f\n' % mat_wrap.alpha)  # Alpha (obj uses 'd' for dissolve)
-
-                # See http://en.wikipedia.org/wiki/Wavefront_.obj_file for whole list of values...
-                # Note that mapping is rather fuzzy sometimes, trying to do our best here.
-                if mat_wrap.specular == 0:
-                    fw('illum 1\n')  # no specular.
-                elif use_mirror:
-                    if use_transparency:
-                        fw('illum 6\n')  # Reflection, Transparency, Ray trace
-                    else:
-                        fw('illum 3\n')  # Reflection and Ray trace
-                elif use_transparency:
-                    fw('illum 9\n')  # 'Glass' transparency and no Ray trace reflection... fuzzy matching, but...
-                else:
-                    fw('illum 2\n')  # light normally
-
-                #### And now, the image textures...
-                image_map = {
-                        "map_Kd": "base_color_texture",
-                        "map_Ka": None,  # ambient...
-                        "map_Ks": "specular_texture",
-                        "map_Ns": "roughness_texture",
-                        "map_d": "alpha_texture",
-                        "map_Tr": None,  # transmission roughness?
-                        "map_Bump": "normalmap_texture",
-                        "disp": None,  # displacement...
-                        "refl": "metallic_texture",
-                        "map_Ke": "emission_color_texture",
-                        }
-
-                for key, mat_wrap_key in sorted(image_map.items()):
-                    if mat_wrap_key is None:
-                        continue
-                    tex_wrap = getattr(mat_wrap, mat_wrap_key, None)
-                    if tex_wrap is None:
-                        continue
-                    image = tex_wrap.image
-                    if image is None:
-                        continue
-
-                    filepath = io_utils.path_reference(image.filepath, source_dir, dest_dir,
-                                                       path_mode, "", copy_set, image.library)
-                    options = []
-                    if key == "map_Bump":
-                        if mat_wrap.normalmap_strength != 1.0:
-                            options.append('-bm %.6f' % mat_wrap.normalmap_strength)
-                    if tex_wrap.translation != Vector((0.0, 0.0, 0.0)):
-                        options.append('-o %.6f %.6f %.6f' % tex_wrap.translation[:])
-                    if tex_wrap.scale != Vector((1.0, 1.0, 1.0)):
-                        options.append('-s %.6f %.6f %.6f' % tex_wrap.scale[:])
-                    if options:
-                        fw('%s %s %s\n' % (key, " ".join(options), repr(filepath)[1:-1]))
-                    else:
-                        fw('%s %s\n' % (key, repr(filepath)[1:-1]))
-
-            else:
-                # Write a dummy material here?
-                fw('Ns 500\n')
-                fw('Ka 0.8 0.8 0.8\n')
-                fw('Kd 0.8 0.8 0.8\n')
-                fw('Ks 0.8 0.8 0.8\n')
-                fw('d 1\n')  # No alpha
-                fw('illum 2\n')  # light normally
-
-
-
-def test_nurbs_compat(ob):
-    if ob.type != 'CURVE':
-        return False
-
-    for nu in ob.data.splines:
-        if nu.point_count_v == 1 and nu.type != 'BEZIER':  # not a surface and not bezier
-            return True
-
-    return False
-
-
-def write_nurb(fw, ob, ob_mat):
-    tot_verts = 0
-    cu = ob.data
-
-    # use negative indices
-    for nu in cu.splines:
-        if nu.type == 'POLY':
-            DEG_ORDER_U = 1
-        else:
-            DEG_ORDER_U = nu.order_u - 1  # odd but tested to be correct
-
-        if nu.type == 'BEZIER':
-            print("\tWarning, bezier curve:", ob.name, "only poly and nurbs curves supported")
-            continue
-
-        if nu.point_count_v > 1:
-            print("\tWarning, surface:", ob.name, "only poly and nurbs curves supported")
-            continue
-
-        if len(nu.points) <= DEG_ORDER_U:
-            print("\tWarning, order_u is lower then vert count, skipping:", ob.name)
-            continue
-
-        pt_num = 0
-        do_closed = nu.use_cyclic_u
-        do_endpoints = (do_closed == 0) and nu.use_endpoint_u
-
-        for pt in nu.points:
-            fw('v %.6f %.6f %.6f\n' % (ob_mat @ pt.co.to_3d())[:])
-            pt_num += 1
-        tot_verts += pt_num
-
-        fw('g %s\n' % (name_compat(ob.name)))  # name_compat(ob.getData(1)) could use the data name too
-        fw('cstype bspline\n')  # not ideal, hard coded
-        fw('deg %d\n' % DEG_ORDER_U)  # not used for curves but most files have it still
-
-        curve_ls = [-(i + 1) for i in range(pt_num)]
-
-        # 'curv' keyword
-        if do_closed:
-            if DEG_ORDER_U == 1:
-                pt_num += 1
-                curve_ls.append(-1)
-            else:
-                pt_num += DEG_ORDER_U
-                curve_ls = curve_ls + curve_ls[0:DEG_ORDER_U]
-
-        fw('curv 0.0 1.0 %s\n' % (" ".join([str(i) for i in curve_ls])))  # Blender has no U and V values for the curve
-
-        # 'parm' keyword
-        tot_parm = (DEG_ORDER_U + 1) + pt_num
-        tot_parm_div = float(tot_parm - 1)
-        parm_ls = [(i / tot_parm_div) for i in range(tot_parm)]
-
-        if do_endpoints:  # end points, force param
-            for i in range(DEG_ORDER_U + 1):
-                parm_ls[i] = 0.0
-                parm_ls[-(1 + i)] = 1.0
-
-        fw("parm u %s\n" % " ".join(["%.6f" % i for i in parm_ls]))
-
-        fw('end\n')
-
-    return tot_verts
-
 
 def write_file(filepath, objects, scene,
                EXPORT_TRI=False,
@@ -292,336 +106,290 @@ def write_file(filepath, objects, scene,
         else:
             return '(null)'
 
-    # with ProgressReportSubstep(progress, 2, "OBJ Export path: ", "OBJ Export Finished") as subprogress1:
-        # with open(filepath, "w", encoding="utf8", newline="\n") as f:
-    fw = filepath.write
-    # print('test')
-    # Write Header
-    # fw('# Blender v%s OBJ File: %r\n' % (bpy.app.version_string, os.path.basename(bpy.data.filepath)))
-    # fw('# www.blender.org\n')
 
-    # Tell the obj file what material file to use.
-    # if EXPORT_MTL:
-    #     mtlfilepath = os.path.splitext(filepath)[0] + ".mtl"
-    #     # filepath can contain non utf8 chars, use repr
-    #     fw('mtllib %s\n' % repr(os.path.basename(mtlfilepath))[1:-1])
+    fw = filepath.write
+
 
     # Initialize totals, these are updated each object
     totverts = totuvco = totno = 1
 
     face_vert_index = 1
 
-    # A Dict of Materials
-    # (material.name, image.name):matname_imagename # matname_imagename has gaps removed.
-    # mtl_dict = {}
-    # Used to reduce the usage of matname_texname materials, which can become annoying in case of
-    # repeated exports/imports, yet keeping unique mat names per keys!
-    # mtl_name: (material.name, image.name)
-    # mtl_rev_dict = {}
-
     copy_set = set()
 
     # Get all meshes
-    # subprogress1.enter_substeps(len(objects))
-    # print(objects)
     for i, ob_main in enumerate(objects):
-        # print('iterating')
         # ignore dupli children
         if ob_main.parent and ob_main.parent.instance_type in {'VERTS', 'FACES'}:
-            # subprogress1.step("Ignoring %s, dupli child..." % ob_main.name)
             continue
 
         obs = [(ob_main, ob_main.matrix_world)]
-        # print(ob_main.matrix_world)
-        # if ob_main.is_instancer:
-        #     obs += [(dup.instance_object.original, dup.matrix_world.copy())
-        #             for dup in depsgraph.object_instances
-        #             if dup.parent and dup.parent.original == ob_main]
-            # ~ print(ob_main.name, 'has', len(obs) - 1, 'dupli children')
 
-        # subprogress1.enter_substeps(len(obs))
         for ob, ob_mat in obs:
-            # with ProgressReportSubstep(subprogress1, 6) as subprogress2:
-                uv_unique_count = no_unique_count = 0
+            uv_unique_count = no_unique_count = 0
 
-                # Nurbs curve support
-                if EXPORT_CURVE_AS_NURBS and test_nurbs_compat(ob):
-                    ob_mat = EXPORT_GLOBAL_MATRIX @ ob_mat
-                    totverts += write_nurb(fw, ob, ob_mat)
-                    continue
-                # END NURBS
+            ob_for_convert = ob.original
 
-                ob_for_convert = ob.original
+            try:
+                me = ob_for_convert.to_mesh()
+            except RuntimeError:
+                me = None
 
-                try:
-                    me = ob_for_convert.to_mesh()
-                except RuntimeError:
-                    me = None
+            if me is None:
+                continue
 
-                if me is None:
-                    continue
+            # _must_ do this before applying transformation, else tessellation may differ
+            if EXPORT_TRI:
+                # _must_ do this first since it re-allocs arrays
+                mesh_triangulate(me)
 
-                # _must_ do this before applying transformation, else tessellation may differ
-                if EXPORT_TRI:
-                    # _must_ do this first since it re-allocs arrays
-                    mesh_triangulate(me)
+            me.transform(EXPORT_GLOBAL_MATRIX @ ob_mat)
+            # If negative scaling, we have to invert the normals...
+            if ob_mat.determinant() < 0.0:
+                me.flip_normals()
 
-                me.transform(EXPORT_GLOBAL_MATRIX @ ob_mat)
-                # If negative scaling, we have to invert the normals...
-                if ob_mat.determinant() < 0.0:
-                    me.flip_normals()
-
-                if EXPORT_UV:
-                    faceuv = len(me.uv_layers) > 0
-                    if faceuv:
-                        uv_layer = me.uv_layers.active.data[:]
-                else:
-                    faceuv = False
-
-                me_verts = me.vertices[:]
-
-                # Make our own list so it can be sorted to reduce context switching
-                face_index_pairs = [(face, index) for index, face in enumerate(me.polygons)]
-
-                if EXPORT_EDGES:
-                    edges = me.edges
-                else:
-                    edges = []
-
-                if not (len(face_index_pairs) + len(edges) + len(me.vertices)):  # Make sure there is something to write
-                    # clean up
-                    ob_for_convert.to_mesh_clear()
-                    continue  # dont bother with this mesh.
-
-                if EXPORT_NORMALS and face_index_pairs:
-                    me.calc_normals_split()
-                    # No need to call me.free_normals_split later, as this mesh is deleted anyway!
-
-                loops = me.loops
-
-                if (EXPORT_SMOOTH_GROUPS or EXPORT_SMOOTH_GROUPS_BITFLAGS) and face_index_pairs:
-                    smooth_groups, smooth_groups_tot = me.calc_smooth_groups(use_bitflags=EXPORT_SMOOTH_GROUPS_BITFLAGS)
-                    if smooth_groups_tot <= 1:
-                        smooth_groups, smooth_groups_tot = (), 0
-                else:
-                    smooth_groups, smooth_groups_tot = (), 0
-
-                materials = me.materials[:]
-                material_names = [m.name if m else None for m in materials]
-
-                # avoid bad index errors
-                if not materials:
-                    materials = [None]
-                    material_names = [name_compat(None)]
-
-                # Sort by Material, then images
-                # so we dont over context switch in the obj file.
-                if EXPORT_KEEP_VERT_ORDER:
-                    pass
-                else:
-                    if len(materials) > 1:
-                        if smooth_groups:
-                            sort_func = lambda a: (a[0].material_index,
-                                                    smooth_groups[a[1]] if a[0].use_smooth else False)
-                        else:
-                            sort_func = lambda a: (a[0].material_index,
-                                                    a[0].use_smooth)
-                    else:
-                        # no materials
-                        if smooth_groups:
-                            sort_func = lambda a: smooth_groups[a[1] if a[0].use_smooth else False]
-                        else:
-                            sort_func = lambda a: a[0].use_smooth
-
-                    face_index_pairs.sort(key=sort_func)
-
-                    del sort_func
-
-                # Set the default mat to no material and no image.
-                contextMat = 0, 0  # Can never be this, so we will label a new material the first chance we get.
-                contextSmooth = None  # Will either be true or false,  set bad to force initialization switch.
-
-                if EXPORT_BLEN_OBS or EXPORT_GROUP_BY_OB:
-                    name1 = ob.name
-                    name2 = ob.data.name
-                    if name1 == name2:
-                        obnamestring = name_compat(name1)
-                    else:
-                        obnamestring = '%s_%s' % (name_compat(name1), name_compat(name2))
-
-                    if EXPORT_BLEN_OBS:
-                        fw('o %s\n' % obnamestring)  # Write Object name
-                    else:  # if EXPORT_GROUP_BY_OB:
-                        fw('g %s\n' % obnamestring)
-
-                # subprogress2.step()
-
-                # Vert
-                for v in me_verts:
-                    fw('v %.6f %.6f %.6f\n' % v.co[:])
-
-                # subprogress2.step()
-
-                # UV
+            if EXPORT_UV:
+                faceuv = len(me.uv_layers) > 0
                 if faceuv:
-                    # in case removing some of these dont get defined.
-                    uv = f_index = uv_index = uv_key = uv_val = uv_ls = None
+                    uv_layer = me.uv_layers.active.data[:]
+            else:
+                faceuv = False
 
-                    uv_face_mapping = [None] * len(face_index_pairs)
+            me_verts = me.vertices[:]
 
-                    uv_dict = {}
-                    uv_get = uv_dict.get
-                    for f, f_index in face_index_pairs:
-                        uv_ls = uv_face_mapping[f_index] = []
-                        for uv_index, l_index in enumerate(f.loop_indices):
-                            uv = uv_layer[l_index].uv
-                            # include the vertex index in the key so we don't share UV's between vertices,
-                            # allowed by the OBJ spec but can cause issues for other importers, see: T47010.
+            # Make our own list so it can be sorted to reduce context switching
+            face_index_pairs = [(face, index) for index, face in enumerate(me.polygons)]
 
-                            # this works too, shared UV's for all verts
-                            #~ uv_key = veckey2d(uv)
-                            uv_key = loops[l_index].vertex_index, veckey2d(uv)
+            if EXPORT_EDGES:
+                edges = me.edges
+            else:
+                edges = []
 
-                            uv_val = uv_get(uv_key)
-                            if uv_val is None:
-                                uv_val = uv_dict[uv_key] = uv_unique_count
-                                fw('vt %.6f %.6f\n' % uv[:])
-                                uv_unique_count += 1
-                            uv_ls.append(uv_val)
-
-                    del uv_dict, uv, f_index, uv_index, uv_ls, uv_get, uv_key, uv_val
-                    # Only need uv_unique_count and uv_face_mapping
-
-                # subprogress2.step()
-
-                # NORMAL, Smooth/Non smoothed.
-                if EXPORT_NORMALS:
-                    no_key = no_val = None
-                    normals_to_idx = {}
-                    no_get = normals_to_idx.get
-                    loops_to_normals = [0] * len(loops)
-                    for f, f_index in face_index_pairs:
-                        for l_idx in f.loop_indices:
-                            no_key = veckey3d(loops[l_idx].normal)
-                            no_val = no_get(no_key)
-                            if no_val is None:
-                                no_val = normals_to_idx[no_key] = no_unique_count
-                                fw('vn %.4f %.4f %.4f\n' % no_key)
-                                no_unique_count += 1
-                            loops_to_normals[l_idx] = no_val
-                    del normals_to_idx, no_get, no_key, no_val
-                else:
-                    loops_to_normals = []
-
-                # subprogress2.step()
-
-                # XXX
-                if EXPORT_POLYGROUPS:
-                    # Retrieve the list of vertex groups
-                    vertGroupNames = ob.vertex_groups.keys()
-                    if vertGroupNames:
-                        currentVGroup = ''
-                        # Create a dictionary keyed by face id and listing, for each vertex, the vertex groups it belongs to
-                        vgroupsMap = [[] for _i in range(len(me_verts))]
-                        for v_idx, v_ls in enumerate(vgroupsMap):
-                            v_ls[:] = [(vertGroupNames[g.group], g.weight) for g in me_verts[v_idx].groups]
-
-                for f, f_index in face_index_pairs:
-                    f_smooth = f.use_smooth
-                    if f_smooth and smooth_groups:
-                        f_smooth = smooth_groups[f_index]
-                    f_mat = min(f.material_index, len(materials) - 1)
-
-                    # MAKE KEY
-                    key = material_names[f_mat], None  # No image, use None instead.
-
-                    # Write the vertex group
-                    if EXPORT_POLYGROUPS:
-                        if vertGroupNames:
-                            # find what vertext group the face belongs to
-                            vgroup_of_face = findVertexGroupName(f, vgroupsMap)
-                            if vgroup_of_face != currentVGroup:
-                                currentVGroup = vgroup_of_face
-                                fw('g %s\n' % vgroup_of_face)
-
-                    # CHECK FOR CONTEXT SWITCH
-                    if key == contextMat:
-                        pass  # Context already switched, dont do anything
-                    
-
-                    contextMat = key
-                    if f_smooth != contextSmooth:
-                        if f_smooth:  # on now off
-                            if smooth_groups:
-                                f_smooth = smooth_groups[f_index]
-                                fw('s %d\n' % f_smooth)
-                            else:
-                                fw('s 1\n')
-                        else:  # was off now on
-                            fw('s off\n')
-                        contextSmooth = f_smooth
-
-                    f_v = [(vi, me_verts[v_idx], l_idx)
-                            for vi, (v_idx, l_idx) in enumerate(zip(f.vertices, f.loop_indices))]
-
-                    fw('f')
-                    if faceuv:
-                        if EXPORT_NORMALS:
-                            for vi, v, li in f_v:
-                                fw(" %d/%d/%d" % (totverts + v.index,
-                                                    totuvco + uv_face_mapping[f_index][vi],
-                                                    totno + loops_to_normals[li],
-                                                    ))  # vert, uv, normal
-                        else:  # No Normals
-                            for vi, v, li in f_v:
-                                fw(" %d/%d" % (totverts + v.index,
-                                                totuvco + uv_face_mapping[f_index][vi],
-                                                ))  # vert, uv
-
-                        face_vert_index += len(f_v)
-
-                    else:  # No UV's
-                        if EXPORT_NORMALS:
-                            for vi, v, li in f_v:
-                                fw(" %d//%d" % (totverts + v.index, totno + loops_to_normals[li]))
-                        else:  # No Normals
-                            for vi, v, li in f_v:
-                                fw(" %d" % (totverts + v.index))
-
-                    fw('\n')
-
-                # subprogress2.step()
-
-                # Write edges.
-                if EXPORT_EDGES:
-                    for ed in edges:
-                        if ed.is_loose:
-                            fw('l %d %d\n' % (totverts + ed.vertices[0], totverts + ed.vertices[1]))
-
-                # Make the indices global rather then per mesh
-                totverts += len(me_verts)
-                totuvco += uv_unique_count
-                totno += no_unique_count
-
+            if not (len(face_index_pairs) + len(edges) + len(me.vertices)):  # Make sure there is something to write
                 # clean up
                 ob_for_convert.to_mesh_clear()
+                continue  # dont bother with this mesh.
 
-            # subprogress1.leave_substeps("Finished writing geometry of '%s'." % ob_main.name)
-        # subprogress1.leave_substeps()
+            if EXPORT_NORMALS and face_index_pairs:
+                me.calc_normals_split()
+                # No need to call me.free_normals_split later, as this mesh is deleted anyway!
 
+            loops = me.loops
 
-        # END OPEN!------
-        # subprogress1.step("Finished exporting geometry, now exporting materials")
+            if (EXPORT_SMOOTH_GROUPS or EXPORT_SMOOTH_GROUPS_BITFLAGS) and face_index_pairs:
+                smooth_groups, smooth_groups_tot = me.calc_smooth_groups(use_bitflags=EXPORT_SMOOTH_GROUPS_BITFLAGS)
+                if smooth_groups_tot <= 1:
+                    smooth_groups, smooth_groups_tot = (), 0
+            else:
+                smooth_groups, smooth_groups_tot = (), 0
 
-        # Now we have all our materials, save them
-        # don't need materials
-        # if EXPORT_MTL:
-        #     write_mtl(scene, mtlfilepath, EXPORT_PATH_MODE, copy_set, mtl_dict)
+            materials = me.materials[:]
+            material_names = [m.name if m else None for m in materials]
 
-        print(filepath.getvalue())
+            # avoid bad index errors
+            if not materials:
+                materials = [None]
+                material_names = [name_compat(None)]
 
-        # copy all collected files.
-        # io_utils.path_reference_copy(copy_set)
+            # Sort by Material, then images
+            # so we dont over context switch in the obj file.
+            if EXPORT_KEEP_VERT_ORDER:
+                pass
+            else:
+                if len(materials) > 1:
+                    if smooth_groups:
+                        sort_func = lambda a: (a[0].material_index,
+                                                smooth_groups[a[1]] if a[0].use_smooth else False)
+                    else:
+                        sort_func = lambda a: (a[0].material_index,
+                                                a[0].use_smooth)
+                else:
+                    # no materials
+                    if smooth_groups:
+                        sort_func = lambda a: smooth_groups[a[1] if a[0].use_smooth else False]
+                    else:
+                        sort_func = lambda a: a[0].use_smooth
+
+                face_index_pairs.sort(key=sort_func)
+
+                del sort_func
+
+            # Set the default mat to no material and no image.
+            contextMat = 0, 0  # Can never be this, so we will label a new material the first chance we get.
+            contextSmooth = None  # Will either be true or false,  set bad to force initialization switch.
+
+            if EXPORT_BLEN_OBS or EXPORT_GROUP_BY_OB:
+                name1 = ob.name
+                name2 = ob.data.name
+                # if name1 == name2:
+                #     obnamestring = name_compat(name1)
+                # else:
+                #     obnamestring = '%s_%s' % (name_compat(name1), name_compat(name2))
+
+                #assume all objects have unique names for now
+                obnamestring = name_compat(name1)
+
+                if EXPORT_BLEN_OBS:
+                    fw('o %s\n' % obnamestring)  # Write Object name
+                else:  # if EXPORT_GROUP_BY_OB:
+                    fw('g %s\n' % obnamestring)
+
+            # subprogress2.step()
+
+            # Vert
+            for v in me_verts:
+                fw('v %.6f %.6f %.6f\n' % v.co[:])
+
+            # subprogress2.step()
+
+            # UV
+            if faceuv:
+                # in case removing some of these dont get defined.
+                uv = f_index = uv_index = uv_key = uv_val = uv_ls = None
+
+                uv_face_mapping = [None] * len(face_index_pairs)
+
+                uv_dict = {}
+                uv_get = uv_dict.get
+                for f, f_index in face_index_pairs:
+                    uv_ls = uv_face_mapping[f_index] = []
+                    for uv_index, l_index in enumerate(f.loop_indices):
+                        uv = uv_layer[l_index].uv
+                        # include the vertex index in the key so we don't share UV's between vertices,
+                        # allowed by the OBJ spec but can cause issues for other importers, see: T47010.
+
+                        # this works too, shared UV's for all verts
+                        #~ uv_key = veckey2d(uv)
+                        uv_key = loops[l_index].vertex_index, veckey2d(uv)
+
+                        uv_val = uv_get(uv_key)
+                        if uv_val is None:
+                            uv_val = uv_dict[uv_key] = uv_unique_count
+                            fw('vt %.6f %.6f\n' % uv[:])
+                            uv_unique_count += 1
+                        uv_ls.append(uv_val)
+
+                del uv_dict, uv, f_index, uv_index, uv_ls, uv_get, uv_key, uv_val
+                # Only need uv_unique_count and uv_face_mapping
+
+            # subprogress2.step()
+
+            # NORMAL, Smooth/Non smoothed.
+            if EXPORT_NORMALS:
+                no_key = no_val = None
+                normals_to_idx = {}
+                no_get = normals_to_idx.get
+                loops_to_normals = [0] * len(loops)
+                for f, f_index in face_index_pairs:
+                    for l_idx in f.loop_indices:
+                        no_key = veckey3d(loops[l_idx].normal)
+                        no_val = no_get(no_key)
+                        if no_val is None:
+                            no_val = normals_to_idx[no_key] = no_unique_count
+                            fw('vn %.4f %.4f %.4f\n' % no_key)
+                            no_unique_count += 1
+                        loops_to_normals[l_idx] = no_val
+                del normals_to_idx, no_get, no_key, no_val
+            else:
+                loops_to_normals = []
+
+            # subprogress2.step()
+
+            # XXX
+            if EXPORT_POLYGROUPS:
+                # Retrieve the list of vertex groups
+                vertGroupNames = ob.vertex_groups.keys()
+                if vertGroupNames:
+                    currentVGroup = ''
+                    # Create a dictionary keyed by face id and listing, for each vertex, the vertex groups it belongs to
+                    vgroupsMap = [[] for _i in range(len(me_verts))]
+                    for v_idx, v_ls in enumerate(vgroupsMap):
+                        v_ls[:] = [(vertGroupNames[g.group], g.weight) for g in me_verts[v_idx].groups]
+
+            for f, f_index in face_index_pairs:
+                f_smooth = f.use_smooth
+                if f_smooth and smooth_groups:
+                    f_smooth = smooth_groups[f_index]
+                f_mat = min(f.material_index, len(materials) - 1)
+
+                # MAKE KEY
+                key = material_names[f_mat], None  # No image, use None instead.
+
+                # Write the vertex group
+                if EXPORT_POLYGROUPS:
+                    if vertGroupNames:
+                        # find what vertext group the face belongs to
+                        vgroup_of_face = findVertexGroupName(f, vgroupsMap)
+                        if vgroup_of_face != currentVGroup:
+                            currentVGroup = vgroup_of_face
+                            fw('g %s\n' % vgroup_of_face)
+
+                # CHECK FOR CONTEXT SWITCH
+                if key == contextMat:
+                    pass  # Context already switched, dont do anything
+                
+
+                contextMat = key
+                if f_smooth != contextSmooth:
+                    if f_smooth:  # on now off
+                        if smooth_groups:
+                            f_smooth = smooth_groups[f_index]
+                            fw('s %d\n' % f_smooth)
+                        else:
+                            fw('s 1\n')
+                    else:  # was off now on
+                        fw('s off\n')
+                    contextSmooth = f_smooth
+
+                f_v = [(vi, me_verts[v_idx], l_idx)
+                        for vi, (v_idx, l_idx) in enumerate(zip(f.vertices, f.loop_indices))]
+
+                fw('f')
+                if faceuv:
+                    if EXPORT_NORMALS:
+                        for vi, v, li in f_v:
+                            fw(" %d/%d/%d" % (totverts + v.index,
+                                                totuvco + uv_face_mapping[f_index][vi],
+                                                totno + loops_to_normals[li],
+                                                ))  # vert, uv, normal
+                    else:  # No Normals
+                        for vi, v, li in f_v:
+                            fw(" %d/%d" % (totverts + v.index,
+                                            totuvco + uv_face_mapping[f_index][vi],
+                                            ))  # vert, uv
+
+                    face_vert_index += len(f_v)
+
+                else:  # No UV's
+                    if EXPORT_NORMALS:
+                        for vi, v, li in f_v:
+                            fw(" %d//%d" % (totverts + v.index, totno + loops_to_normals[li]))
+                    else:  # No Normals
+                        for vi, v, li in f_v:
+                            fw(" %d" % (totverts + v.index))
+
+                fw('\n')
+
+            # subprogress2.step()
+
+            # Write edges.
+            if EXPORT_EDGES:
+                for ed in edges:
+                    if ed.is_loose:
+                        fw('l %d %d\n' % (totverts + ed.vertices[0], totverts + ed.vertices[1]))
+
+            # Make the indices global rather then per mesh
+            totverts += len(me_verts)
+            totuvco += uv_unique_count
+            totno += no_unique_count
+
+            # clean up
+            ob_for_convert.to_mesh_clear()
+
+        #end forloop
+
+    #print(filepath.getvalue())
+
 
 
 def _write(
