@@ -218,6 +218,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
         #external function/operator will select them
         if len(selected_objects) == 0:
             print("Nothing Selected")
+            self.report({"WARNING"}, "Nothing Selected, please select Something")
             return {'FINISHED'}
 
         #store the names of objects

@@ -422,10 +422,9 @@ def _write(
         if bpy.ops.object.mode_set.poll():
             bpy.ops.object.mode_set(mode='OBJECT')
 
-        if EXPORT_SEL_ONLY:
-            objects = scene.objects
-        else:
-            objects = scene.objects
+        #Only use selected objs
+        #Let something further up manage selection
+        objects = context.selected_objects
 
         write_file(
             filepath,
