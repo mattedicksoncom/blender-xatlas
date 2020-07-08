@@ -563,7 +563,28 @@ class OBJECT_PT_xatlas_panel (Panel):
     bl_label = "Xatlas Tools"
     bl_space_type = "VIEW_3D"   
     bl_region_type = "UI"
-    bl_category = "Tool"
+    bl_category = "Xatlas"
+    bl_context = ""
+
+    @classmethod
+    def poll(self,context):
+        return context.object is not None
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        packtool = scene.pack_tool
+        mytool = scene.chart_tool
+
+
+
+class OBJECT_PT_pack_panel (Panel):
+    bl_idname = "OBJECT_PT_pack_panel"
+    bl_label = "Pack Options"
+    bl_space_type = "VIEW_3D"   
+    bl_region_type = "UI"
+    bl_category = "Xatlas"
+    bl_parent_id = 'OBJECT_PT_xatlas_panel'
     bl_context = ""
 
     @classmethod
@@ -578,25 +599,68 @@ class OBJECT_PT_xatlas_panel (Panel):
 
         #add the pack options
         box = layout.box()
-        label = box.label(text="Pack Options")
+        # label = box.label(text="Pack Options")
         for tool in packtool.__annotations__.keys():
             box.prop( packtool, tool)
 
+class OBJECT_PT_chart_panel (Panel):
+    bl_idname = "OBJECT_PT_chart_panel"
+    bl_label = "Chart Options"
+    bl_space_type = "VIEW_3D"   
+    bl_region_type = "UI"
+    bl_category = "Xatlas"
+    bl_parent_id = 'OBJECT_PT_xatlas_panel'
+    bl_context = ""
+
+    @classmethod
+    def poll(self,context):
+        return context.object is not None
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        packtool = scene.pack_tool
+        mytool = scene.chart_tool
+
         #add the chart options
         box = layout.box()
-        label = box.label(text="Chart Options")
         for tool in mytool.__annotations__.keys():
             box.prop( mytool, tool)
 
+class OBJECT_PT_run_panel (Panel):
+    bl_idname = "OBJECT_PT_run_panel"
+    bl_label = "Run Xatlas"
+    bl_space_type = "VIEW_3D"   
+    bl_region_type = "UI"
+    bl_category = "Xatlas"
+    bl_parent_id = 'OBJECT_PT_xatlas_panel'
+    bl_context = ""
+
+    @classmethod
+    def poll(self,context):
+        return context.object is not None
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        packtool = scene.pack_tool
+        mytool = scene.chart_tool
+
         box = layout.box()
-        label = box.label(text="Run")
-        box.prop( scene.shared_properties, 'unwrapSelection')
-        box.prop( scene.shared_properties, 'mainUVIndex')
-        box.prop( scene.shared_properties, 'atlasLayout')
+        # label = box.label(text="Run")
+        row = box.row()
+        row.label(text="Unwrap")
+        row.prop( scene.shared_properties, 'unwrapSelection')
         if scene.shared_properties.unwrapSelection == "COLLECTION":
             box.prop( scene.shared_properties, 'selectedCollection')
-        box.operator("object.setup_unwrap", text="Run Xatlas")
 
+        box = layout.box()
+        box.prop( scene.shared_properties, 'mainUVIndex')
+        row = box.row()
+        row.label(text="Atlas Layout")
+        row.prop( scene.shared_properties, 'atlasLayout')
+        
+        box.operator("object.setup_unwrap", text="Run Xatlas")
 # end panels------------------------------
 
 
@@ -612,6 +676,9 @@ classes = (
     Setup_Unwrap,
     Unwrap_Lightmap_Group_Xatlas_2,
     OBJECT_PT_xatlas_panel,
+    OBJECT_PT_pack_panel,
+    OBJECT_PT_chart_panel,
+    OBJECT_PT_run_panel,
 )
 
 def register():
