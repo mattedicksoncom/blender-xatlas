@@ -196,14 +196,14 @@ class PG_ChartProperties (PropertyGroup):
 
 
 def get_collectionNames(self, context):
-    colllectionNames = [];
+    colllectionNames = []
     for collection in bpy.data.collections:
         colllectionNames.append((collection.name, collection.name, ""))
-    return colllectionNames;
+    return colllectionNames
 
 class PG_SharedProperties (PropertyGroup):
 
-    unwrapSelection = EnumProperty(
+    unwrapSelection : EnumProperty(
         name="",
         description="Which Objects to unwrap",
         items=[ ('SELECTED', "Selection", ""),
@@ -212,26 +212,64 @@ class PG_SharedProperties (PropertyGroup):
                ]
         )
 
-    atlasLayout = EnumProperty(
+    atlasLayout : EnumProperty(
         name="",
         description="How to Layout the atlases",
         items=[ ('OVERLAP', "Overlap", "Overlap all the atlases"),
-                ('SPREADX', "Spread x", "Seperate each atlas along the x-axis"),
+                ('SPREADX', "Spread X", "Seperate each atlas along the x-axis"),
                ]
         )
 
-    selectedCollection = EnumProperty(
+    selectedCollection : EnumProperty(
         name="",
         items = get_collectionNames
-    )
+        )
 
     mainUVIndex : IntProperty(
-        name = "Main UV Index",
+        name = "",
         description="The index of the primary none lightmap uv",
         default = 0,
         min = 0,
         max = 1000
-    )
+        )
+
+    lightmapUVIndex : IntProperty(
+        name = "",
+        description="The index of the lightmap uv",
+        default = 0,
+        min = 0,
+        max = 1000
+        )
+
+
+    mainUVChoiceType : EnumProperty(
+        name="",
+        description="The method to obtain the main UV",
+        items=[ ('NAME', "By Name", ""),
+                ('INDEX', "By Index", ""),
+               ]
+        )
+
+    mainUVName : StringProperty(
+        name = "",
+        description="The name of the main (non-lightmap) UV",
+        default = "UVMap",
+        )
+
+
+    lightmapUVChoiceType : EnumProperty(
+        name="",
+        description="The method to obtain the lightmap UV",
+        items=[ ('NAME', "By Name", ""),
+                ('INDEX', "By Index", ""),
+               ]
+        )
+
+    lightmapUVName : StringProperty(
+        name = "",
+        description="The name of the lightmap UV (If it doesn't exist it will be created)",
+        default = "UVMap_Lightmap",
+        )
     
 
 # end PropertyGroups---------------------------
@@ -655,7 +693,27 @@ class OBJECT_PT_run_panel (Panel):
             box.prop( scene.shared_properties, 'selectedCollection')
 
         box = layout.box()
-        box.prop( scene.shared_properties, 'mainUVIndex')
+        row = box.row()
+        row.label(text="Lightmap UV")
+        row.prop( scene.shared_properties, 'lightmapUVChoiceType')
+        if scene.shared_properties.lightmapUVChoiceType == "NAME":
+            box.prop( scene.shared_properties, 'lightmapUVName')
+        elif scene.shared_properties.lightmapUVChoiceType == "INDEX":
+            box.prop( scene.shared_properties, 'lightmapUVIndex')
+
+        box = layout.box()
+        row = box.row()
+        row.label(text="Main UV")
+        row.prop( scene.shared_properties, 'mainUVChoiceType')
+        if scene.shared_properties.mainUVChoiceType == "NAME":
+            box.prop( scene.shared_properties, 'mainUVName')
+        elif scene.shared_properties.mainUVChoiceType == "INDEX":
+            box.prop( scene.shared_properties, 'mainUVIndex')
+        # box.prop( scene.shared_properties, 'mainUVName')
+
+        # box.prop( scene.shared_properties, 'mainUVIndex')
+
+        box = layout.box()
         row = box.row()
         row.label(text="Atlas Layout")
         row.prop( scene.shared_properties, 'atlasLayout')
