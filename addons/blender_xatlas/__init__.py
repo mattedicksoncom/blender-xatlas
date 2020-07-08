@@ -224,6 +224,14 @@ class PG_SharedProperties (PropertyGroup):
         name="",
         items = get_collectionNames
     )
+
+    mainUVIndex : IntProperty(
+        name = "Main UV Index",
+        description="The index of the primary none lightmap uv",
+        default = 0,
+        min = 0,
+        max = 1000
+    )
     
 
 # end PropertyGroups---------------------------
@@ -339,6 +347,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
         export_obj_simple.save(
             context=bpy.context,
             filepath=fakeFile,
+            uvIndex=sharedProperties.mainUVIndex,
             use_selection=True,
             use_animation=False,
             use_mesh_modifiers=True,
@@ -582,6 +591,7 @@ class OBJECT_PT_xatlas_panel (Panel):
         box = layout.box()
         label = box.label(text="Run")
         box.prop( scene.shared_properties, 'unwrapSelection')
+        box.prop( scene.shared_properties, 'mainUVIndex')
         box.prop( scene.shared_properties, 'atlasLayout')
         if scene.shared_properties.unwrapSelection == "COLLECTION":
             box.prop( scene.shared_properties, 'selectedCollection')
