@@ -18,7 +18,7 @@ bl_info = {
 	"author": "mattedickson",
 	"wiki_url": "https://github.com/mattedicksoncom/blender-xatlas/",
 	"tracker_url": "https://github.com/mattedicksoncom/blender-xatlas/issues",
-	"version": (0, 0, 4),
+	"version": (0, 0, 5),
 	"blender": (2, 83, 0),
 	"location": "3D View > Toolbox",
 	"category": "Object",
@@ -196,14 +196,14 @@ class PG_ChartProperties (PropertyGroup):
 
 
 def get_collectionNames(self, context):
-    colllectionNames = [];
+    colllectionNames = []
     for collection in bpy.data.collections:
         colllectionNames.append((collection.name, collection.name, ""))
-    return colllectionNames;
+    return colllectionNames
 
 class PG_SharedProperties (PropertyGroup):
 
-    unwrapSelection = EnumProperty(
+    unwrapSelection : EnumProperty(
         name="",
         description="Which Objects to unwrap",
         items=[ ('SELECTED', "Selection", ""),
@@ -212,26 +212,64 @@ class PG_SharedProperties (PropertyGroup):
                ]
         )
 
-    atlasLayout = EnumProperty(
+    atlasLayout : EnumProperty(
         name="",
         description="How to Layout the atlases",
         items=[ ('OVERLAP', "Overlap", "Overlap all the atlases"),
-                ('SPREADX', "Spread x", "Seperate each atlas along the x-axis"),
+                ('SPREADX', "Spread X", "Seperate each atlas along the x-axis"),
                ]
         )
 
-    selectedCollection = EnumProperty(
+    selectedCollection : EnumProperty(
         name="",
         items = get_collectionNames
-    )
+        )
 
     mainUVIndex : IntProperty(
-        name = "Main UV Index",
+        name = "",
         description="The index of the primary none lightmap uv",
         default = 0,
         min = 0,
         max = 1000
-    )
+        )
+
+    lightmapUVIndex : IntProperty(
+        name = "",
+        description="The index of the lightmap uv",
+        default = 0,
+        min = 0,
+        max = 1000
+        )
+
+
+    mainUVChoiceType : EnumProperty(
+        name="",
+        description="The method to obtain the main UV",
+        items=[ ('NAME', "By Name", ""),
+                ('INDEX', "By Index", ""),
+               ]
+        )
+
+    mainUVName : StringProperty(
+        name = "",
+        description="The name of the main (non-lightmap) UV",
+        default = "UVMap",
+        )
+
+
+    lightmapUVChoiceType : EnumProperty(
+        name="",
+        description="The method to obtain the lightmap UV",
+        items=[ ('NAME', "By Name", ""),
+                ('INDEX', "By Index", ""),
+               ]
+        )
+
+    lightmapUVName : StringProperty(
+        name = "",
+        description="The name of the lightmap UV (If it doesn't exist it will be created)",
+        default = "UVMap_Lightmap",
+        )
     
 
 # end PropertyGroups---------------------------
@@ -325,12 +363,21 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
                 if obj.data.users > 1:
                     obj.data = obj.data.copy() #make single user copy
                 uv_layers = obj.data.uv_layers
-                if not "UVMap_Lightmap" in uv_layers:
-                    uvmap = uv_layers.new(name="UVMap_Lightmap")
+
+                #setup the lightmap uvs
+                uvName = "UVMap_Lightmap"
+                if sharedProperties.lightmapUVChoiceType == "NAME":
+                    uvName = sharedProperties.lightmapUVName
+                elif sharedProperties.lightmapUVChoiceType == "INDEX":
+                    if sharedProperties.lightmapUVIndex < len(uv_layers):
+                        uvName = uv_layers[sharedProperties.lightmapUVIndex].name
+
+                if not uvName in uv_layers:
+                    uvmap = uv_layers.new(name=uvName)
                     uv_layers.active_index = len(uv_layers) - 1
                 else:
                     for i in range(0, len(uv_layers)):
-                        if uv_layers[i].name == 'UVMap_Lightmap':
+                        if uv_layers[i].name == uvName:
                             uv_layers.active_index = i
                 obj.select_set(True)
 
@@ -347,7 +394,9 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
         export_obj_simple.save(
             context=bpy.context,
             filepath=fakeFile,
+            mainUVChoiceType=sharedProperties.mainUVChoiceType,
             uvIndex=sharedProperties.mainUVIndex,
+            uvName=sharedProperties.mainUVName,
             use_selection=True,
             use_animation=False,
             use_mesh_modifiers=True,
@@ -563,7 +612,28 @@ class OBJECT_PT_xatlas_panel (Panel):
     bl_label = "Xatlas Tools"
     bl_space_type = "VIEW_3D"   
     bl_region_type = "UI"
-    bl_category = "Tool"
+    bl_category = "Xatlas"
+    bl_context = ""
+
+    @classmethod
+    def poll(self,context):
+        return context.object is not None
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        packtool = scene.pack_tool
+        mytool = scene.chart_tool
+
+
+
+class OBJECT_PT_pack_panel (Panel):
+    bl_idname = "OBJECT_PT_pack_panel"
+    bl_label = "Pack Options"
+    bl_space_type = "VIEW_3D"   
+    bl_region_type = "UI"
+    bl_category = "Xatlas"
+    bl_parent_id = 'OBJECT_PT_xatlas_panel'
     bl_context = ""
 
     @classmethod
@@ -578,25 +648,88 @@ class OBJECT_PT_xatlas_panel (Panel):
 
         #add the pack options
         box = layout.box()
-        label = box.label(text="Pack Options")
+        # label = box.label(text="Pack Options")
         for tool in packtool.__annotations__.keys():
             box.prop( packtool, tool)
 
+class OBJECT_PT_chart_panel (Panel):
+    bl_idname = "OBJECT_PT_chart_panel"
+    bl_label = "Chart Options"
+    bl_space_type = "VIEW_3D"   
+    bl_region_type = "UI"
+    bl_category = "Xatlas"
+    bl_parent_id = 'OBJECT_PT_xatlas_panel'
+    bl_context = ""
+
+    @classmethod
+    def poll(self,context):
+        return context.object is not None
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        packtool = scene.pack_tool
+        mytool = scene.chart_tool
+
         #add the chart options
         box = layout.box()
-        label = box.label(text="Chart Options")
         for tool in mytool.__annotations__.keys():
             box.prop( mytool, tool)
 
+class OBJECT_PT_run_panel (Panel):
+    bl_idname = "OBJECT_PT_run_panel"
+    bl_label = "Run Xatlas"
+    bl_space_type = "VIEW_3D"   
+    bl_region_type = "UI"
+    bl_category = "Xatlas"
+    bl_parent_id = 'OBJECT_PT_xatlas_panel'
+    bl_context = ""
+
+    @classmethod
+    def poll(self,context):
+        return context.object is not None
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        packtool = scene.pack_tool
+        mytool = scene.chart_tool
+
         box = layout.box()
-        label = box.label(text="Run")
-        box.prop( scene.shared_properties, 'unwrapSelection')
-        box.prop( scene.shared_properties, 'mainUVIndex')
-        box.prop( scene.shared_properties, 'atlasLayout')
+        # label = box.label(text="Run")
+        row = box.row()
+        row.label(text="Unwrap")
+        row.prop( scene.shared_properties, 'unwrapSelection')
         if scene.shared_properties.unwrapSelection == "COLLECTION":
             box.prop( scene.shared_properties, 'selectedCollection')
-        box.operator("object.setup_unwrap", text="Run Xatlas")
 
+        box = layout.box()
+        row = box.row()
+        row.label(text="Lightmap UV")
+        row.prop( scene.shared_properties, 'lightmapUVChoiceType')
+        if scene.shared_properties.lightmapUVChoiceType == "NAME":
+            box.prop( scene.shared_properties, 'lightmapUVName')
+        elif scene.shared_properties.lightmapUVChoiceType == "INDEX":
+            box.prop( scene.shared_properties, 'lightmapUVIndex')
+
+        box = layout.box()
+        row = box.row()
+        row.label(text="Main UV")
+        row.prop( scene.shared_properties, 'mainUVChoiceType')
+        if scene.shared_properties.mainUVChoiceType == "NAME":
+            box.prop( scene.shared_properties, 'mainUVName')
+        elif scene.shared_properties.mainUVChoiceType == "INDEX":
+            box.prop( scene.shared_properties, 'mainUVIndex')
+        # box.prop( scene.shared_properties, 'mainUVName')
+
+        # box.prop( scene.shared_properties, 'mainUVIndex')
+
+        box = layout.box()
+        row = box.row()
+        row.label(text="Atlas Layout")
+        row.prop( scene.shared_properties, 'atlasLayout')
+        
+        box.operator("object.setup_unwrap", text="Run Xatlas")
 # end panels------------------------------
 
 
@@ -612,6 +745,9 @@ classes = (
     Setup_Unwrap,
     Unwrap_Lightmap_Group_Xatlas_2,
     OBJECT_PT_xatlas_panel,
+    OBJECT_PT_pack_panel,
+    OBJECT_PT_chart_panel,
+    OBJECT_PT_run_panel,
 )
 
 def register():

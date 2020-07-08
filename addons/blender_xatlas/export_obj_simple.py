@@ -49,7 +49,9 @@ def mesh_triangulate(me):
 
 
 def write_file(filepath, objects, scene,
+               mainUVChoiceType,
                uvIndex,
+               uvName,
                EXPORT_TRI=False,
                EXPORT_EDGES=False,
                EXPORT_SMOOTH_GROUPS=False,
@@ -153,8 +155,17 @@ def write_file(filepath, objects, scene,
                 faceuv = len(me.uv_layers) > 0
                 if faceuv:
                     # uv_layer = me.uv_layers.active.data[:]
-                    if uvIndex < len(me.uv_layers):
-                        uv_layer = me.uv_layers[uvIndex].data[:]
+                    objUVindex = 0
+                    if mainUVChoiceType == "NAME":
+                        for i in range(0, len(me.uv_layers)):
+                            if me.uv_layers[i].name == uvName:
+                                objUVindex = i
+                    elif mainUVChoiceType == "INDEX":
+                        if uvIndex < len(me.uv_layers):
+                            objUVindex = uvIndex
+
+                    if objUVindex < len(me.uv_layers):
+                        uv_layer = me.uv_layers[objUVindex].data[:]
                     else:
                         uv_layer = me.uv_layers[0].data[:]
             else:
@@ -400,7 +411,9 @@ def write_file(filepath, objects, scene,
 def _write(
            context,
            filepath,
+           mainUVChoiceType,
            uvIndex,
+           uvName,
            EXPORT_TRI,  # ok
            EXPORT_EDGES,
            EXPORT_SMOOTH_GROUPS,
@@ -436,7 +449,9 @@ def _write(
             filepath,
             objects,
             scene,
+            mainUVChoiceType,
             uvIndex,
+            uvName,
             EXPORT_TRI,
             EXPORT_EDGES,
             EXPORT_SMOOTH_GROUPS,
@@ -466,7 +481,9 @@ Currently the exporter lacks these features:
 def save(
         context,
         filepath,
+        mainUVChoiceType,
         uvIndex,
+        uvName,
         *,
         use_triangles=False,
         use_edges=True,
@@ -490,7 +507,9 @@ def save(
         ):
 
     _write(context,filepath,
+        mainUVChoiceType,
         uvIndex,
+        uvName,
         EXPORT_TRI=use_triangles,
         EXPORT_EDGES=use_edges,
         EXPORT_SMOOTH_GROUPS=use_smooth_groups,
