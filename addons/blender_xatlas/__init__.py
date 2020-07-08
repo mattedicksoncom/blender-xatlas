@@ -18,7 +18,7 @@ bl_info = {
 	"author": "mattedickson",
 	"wiki_url": "https://github.com/mattedicksoncom/blender-xatlas/",
 	"tracker_url": "https://github.com/mattedicksoncom/blender-xatlas/issues",
-	"version": (0, 0, 4),
+	"version": (0, 0, 5),
 	"blender": (2, 83, 0),
 	"location": "3D View > Toolbox",
 	"category": "Object",
