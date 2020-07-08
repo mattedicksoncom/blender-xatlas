@@ -363,12 +363,21 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
                 if obj.data.users > 1:
                     obj.data = obj.data.copy() #make single user copy
                 uv_layers = obj.data.uv_layers
-                if not "UVMap_Lightmap" in uv_layers:
-                    uvmap = uv_layers.new(name="UVMap_Lightmap")
+
+                #setup the lightmap uvs
+                uvName = "UVMap_Lightmap"
+                if sharedProperties.lightmapUVChoiceType == "NAME":
+                    uvName = sharedProperties.lightmapUVName
+                elif sharedProperties.lightmapUVChoiceType == "INDEX":
+                    if sharedProperties.lightmapUVIndex < len(uv_layers):
+                        uvName = uv_layers[sharedProperties.lightmapUVIndex].name
+
+                if not uvName in uv_layers:
+                    uvmap = uv_layers.new(name=uvName)
                     uv_layers.active_index = len(uv_layers) - 1
                 else:
                     for i in range(0, len(uv_layers)):
-                        if uv_layers[i].name == 'UVMap_Lightmap':
+                        if uv_layers[i].name == uvName:
                             uv_layers.active_index = i
                 obj.select_set(True)
 
@@ -385,7 +394,9 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
         export_obj_simple.save(
             context=bpy.context,
             filepath=fakeFile,
+            mainUVChoiceType=sharedProperties.mainUVChoiceType,
             uvIndex=sharedProperties.mainUVIndex,
+            uvName=sharedProperties.mainUVName,
             use_selection=True,
             use_animation=False,
             use_mesh_modifiers=True,
