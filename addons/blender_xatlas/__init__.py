@@ -271,6 +271,12 @@ class PG_SharedProperties (PropertyGroup):
         description="The name of the lightmap UV (If it doesn't exist it will be created)",
         default = "UVMap_Lightmap",
         )
+
+    packOnly : BoolProperty(
+        name="Pack Only",
+        description="Don't unwrap the meshes, only, pack them",
+        default = False
+        )
     
 
 # end PropertyGroups---------------------------
@@ -455,7 +461,9 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
                 else:
                     arguments_string = arguments_string + " -" + str(argumentKey) + " " + str(attrib)
 
-        
+        #add pack only option
+        if sharedProperties.packOnly:
+            arguments_string = arguments_string + " -packOnly"
 
         arguments_string = arguments_string + " -atlasLayout" + " " + sharedProperties.atlasLayout
 
@@ -739,7 +747,11 @@ class OBJECT_PT_run_panel (Panel):
         row.label(text="Atlas Layout")
         row.prop( scene.shared_properties, 'atlasLayout')
         
+        
         box.operator("object.setup_unwrap", text="Run Xatlas")
+
+        row = box.row()
+        row.prop( scene.shared_properties, 'packOnly')
 # end panels------------------------------
 
 
