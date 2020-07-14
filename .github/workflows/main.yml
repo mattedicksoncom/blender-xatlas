@@ -1,16 +1,16 @@
-name: Win32Sample GitHub Release
-on:
-   push:
-      branches:
-        - master
-      tags:
-        - 'v*'
-# on: 
-#   workflow_dispatch:
-#       inputs:
-#         tags:
-#           default: 
-#             'v0.0.1'
+name: Build Releases
+# on:
+#    push:
+#       branches:
+#         - master
+#       tags:
+#         - 'v*'
+on: 
+  workflow_dispatch:
+      inputs:
+        tags:
+          default: 
+            'v0.0.1'
 jobs:
   createRelease:
     name: Create GitHub Release
