@@ -28,6 +28,7 @@ import os
 import sys
 import bpy
 import bmesh
+import platform
 
 from dataclasses import dataclass
 from dataclasses import field
@@ -420,7 +421,15 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
 
         #get the path to xatlas
         file_path = os.path.dirname(os.path.abspath(__file__))
-        xatlas_path = os.path.join(file_path, "xatlas", "xatlas-blender.exe")
+        if platform.system() == "Windows":
+            xatlas_path = os.path.join(file_path, "xatlas", "xatlas-blender.exe")
+        elif platform.system() == "Linux":
+            xatlas_path = os.path.join(file_path, "xatlas", "xatlas-blender")
+            #need to set permissions for the process on linux
+            subprocess.Popen(
+                'chmod u+x "' + xatlas_path + '"',
+                shell=True
+            )
 
         #setup the arguments to be passed to xatlas-------------------
         arguments_string = ""
@@ -457,7 +466,8 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
         xatlas_process = subprocess.Popen(
             xatlas_path + ' ' + arguments_string,
             stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE
+            stdout=subprocess.PIPE,
+            shell=True
         )
 
         #shove the fake file in stdin
