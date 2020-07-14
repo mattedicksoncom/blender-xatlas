@@ -182,8 +182,9 @@ int main(int argc, char *argv[])
 	//printf("Settings\n");
 	xatlas::ChartOptions chartOptions;
 	xatlas::PackOptions packOptions;
-	enum class AtlasLayout { overlap, spreadX };
+	enum class AtlasLayout { overlap, spreadX, udim };
 	AtlasLayout atlasLayout = AtlasLayout::overlap;
+	bool packOnly = false;
 
 
 	//printf("Before check\n");
@@ -199,6 +200,13 @@ int main(int argc, char *argv[])
 				if (STRICMP(argv[counter + 1], "SPREADX") == 0) {
 					atlasLayout = AtlasLayout::spreadX;
 				}
+				if (STRICMP(argv[counter + 1], "UDIM") == 0) {
+					atlasLayout = AtlasLayout::udim;
+				}
+			}
+			//pack only
+			if (STRICMP(argv[counter], "-packOnly") == 0) {
+				packOnly = true;
 			}
 
 			//pack options-------------------------------------
@@ -289,31 +297,67 @@ int main(int argc, char *argv[])
 	xatlas::SetProgressCallback(atlas, ProgressCallback, &stopwatch);
 	// Add meshes to atlas.
 	uint32_t totalVertices = 0, totalFaces = 0;
-	for (int i = 0; i < (int)shapes.size(); i++) {
-		const tinyobj::mesh_t &objMesh = shapes[i].mesh;
-		xatlas::MeshDecl meshDecl;
-		meshDecl.vertexCount = (uint32_t)objMesh.positions.size() / 3;
-		meshDecl.vertexPositionData = objMesh.positions.data();
-		meshDecl.vertexPositionStride = sizeof(float) * 3;
-		if (!objMesh.normals.empty()) {
-			meshDecl.vertexNormalData = objMesh.normals.data();
-			meshDecl.vertexNormalStride = sizeof(float) * 3;
+	if (packOnly) {
+		for (int i = 0; i < (int)shapes.size(); i++) {
+			const tinyobj::mesh_t &objMesh = shapes[i].mesh;
+			//xatlas::MeshDecl meshDecl;
+			xatlas::UvMeshDecl meshDecl;
+			meshDecl.vertexCount = (uint32_t)objMesh.positions.size() / 3;
+			meshDecl.vertexPositionData = objMesh.positions.data();
+			meshDecl.vertexPositionStride = sizeof(float) * 3;
+			// don't provide normal data i
+			/*if (!objMesh.normals.empty()) {
+				meshDecl.vertexNormalData = objMesh.normals.data();
+				meshDecl.vertexNormalStride = sizeof(float) * 3;
+			}*/
+			if (!objMesh.texcoords.empty()) {
+				meshDecl.vertexUvData = objMesh.texcoords.data();
+				meshDecl.vertexUvStride = sizeof(float) * 2;
+			}
+			meshDecl.indexCount = (uint32_t)objMesh.indices.size();
+			meshDecl.indexData = objMesh.indices.data();
+			meshDecl.indexFormat = xatlas::IndexFormat::UInt32;
+			//xatlas::AddMeshError::Enum error = xatlas::AddMesh(atlas, meshDecl, (uint32_t)shapes.size());
+			xatlas::AddMeshError::Enum error = xatlas::AddUvMesh(atlas, meshDecl);
+			if (error != xatlas::AddMeshError::Success) {
+				xatlas::Destroy(atlas);
+				printf("\rError adding mesh %d '%s': %s\n", i, shapes[i].name.c_str(), xatlas::StringForEnum(error));
+				return EXIT_FAILURE;
+			}
+			totalVertices += meshDecl.vertexCount;
+			totalFaces += meshDecl.indexCount / 3;
 		}
-		if (!objMesh.texcoords.empty()) {
-			meshDecl.vertexUvData = objMesh.texcoords.data();
-			meshDecl.vertexUvStride = sizeof(float) * 2;
+	}
+	else {
+		for (int i = 0; i < (int)shapes.size(); i++) {
+			const tinyobj::mesh_t &objMesh = shapes[i].mesh;
+			xatlas::MeshDecl meshDecl;
+			//xatlas::UvMeshDecl meshDecl;
+			meshDecl.vertexCount = (uint32_t)objMesh.positions.size() / 3;
+			meshDecl.vertexPositionData = objMesh.positions.data();
+			meshDecl.vertexPositionStride = sizeof(float) * 3;
+			// don't provide normal data i
+			if (!objMesh.normals.empty()) {
+				meshDecl.vertexNormalData = objMesh.normals.data();
+				meshDecl.vertexNormalStride = sizeof(float) * 3;
+			}
+			if (!objMesh.texcoords.empty()) {
+				meshDecl.vertexUvData = objMesh.texcoords.data();
+				meshDecl.vertexUvStride = sizeof(float) * 2;
+			}
+			meshDecl.indexCount = (uint32_t)objMesh.indices.size();
+			meshDecl.indexData = objMesh.indices.data();
+			meshDecl.indexFormat = xatlas::IndexFormat::UInt32;
+			xatlas::AddMeshError::Enum error = xatlas::AddMesh(atlas, meshDecl, (uint32_t)shapes.size());
+			//xatlas::AddMeshError::Enum error = xatlas::AddUvMesh(atlas, meshDecl);
+			if (error != xatlas::AddMeshError::Success) {
+				xatlas::Destroy(atlas);
+				printf("\rError adding mesh %d '%s': %s\n", i, shapes[i].name.c_str(), xatlas::StringForEnum(error));
+				return EXIT_FAILURE;
+			}
+			totalVertices += meshDecl.vertexCount;
+			totalFaces += meshDecl.indexCount / 3;
 		}
-		meshDecl.indexCount = (uint32_t)objMesh.indices.size();
-		meshDecl.indexData = objMesh.indices.data();
-		meshDecl.indexFormat = xatlas::IndexFormat::UInt32;
-		xatlas::AddMeshError::Enum error = xatlas::AddMesh(atlas, meshDecl, (uint32_t)shapes.size());
-		if (error != xatlas::AddMeshError::Success) {
-			xatlas::Destroy(atlas);
-			printf("\rError adding mesh %d '%s': %s\n", i, shapes[i].name.c_str(), xatlas::StringForEnum(error));
-			return EXIT_FAILURE;
-		}
-		totalVertices += meshDecl.vertexCount;
-		totalFaces += meshDecl.indexCount / 3;
 	}
 	xatlas::AddMeshJoin(atlas); // Not necessary. Only called here so geometry totals are printed after the AddMesh progress indicator.
 	printf("   %u total vertices\n", totalVertices);
@@ -352,9 +396,15 @@ int main(int argc, char *argv[])
 			const xatlas::Vertex &vertex = mesh.vertexArray[v];
 
 			float xOffset = 0;
+			float yOffset = 0;
 			//spread the uv axis along the x-axis
 			if (vertex.atlasIndex > 0 && atlasLayout == AtlasLayout::spreadX) {
 				xOffset = (float)vertex.atlasIndex;
+			}
+			if (vertex.atlasIndex > 0 && atlasLayout == AtlasLayout::udim) {
+				int xRowOffset = vertex.atlasIndex % 10;
+				xOffset = (float)xRowOffset;
+				yOffset = (float)floor(vertex.atlasIndex / 10);
 			}
 
 			const float *pos = &shapes[i].mesh.positions[vertex.xref * 3];
@@ -363,7 +413,7 @@ int main(int argc, char *argv[])
 				const float *normal = &shapes[i].mesh.normals[vertex.xref * 3];
 				//printf("vn %g %g %g\n", normal[0], normal[1], normal[2]);
 			}
-			printf("vt %g %g\n", (vertex.uv[0] / atlas->width) + xOffset, vertex.uv[1] / atlas->height);
+			printf("vt %g %g\n", (vertex.uv[0] / atlas->width) + xOffset, (vertex.uv[1] / atlas->height) + yOffset);
 		}
 			
 		for (uint32_t f = 0; f < mesh.indexCount; f += 3) {

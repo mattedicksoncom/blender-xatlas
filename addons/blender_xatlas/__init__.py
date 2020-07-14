@@ -18,7 +18,7 @@ bl_info = {
 	"author": "mattedickson",
 	"wiki_url": "https://github.com/mattedicksoncom/blender-xatlas/",
 	"tracker_url": "https://github.com/mattedicksoncom/blender-xatlas/issues",
-	"version": (0, 0, 5),
+	"version": (0, 0, 6),
 	"blender": (2, 83, 0),
 	"location": "3D View > Toolbox",
 	"category": "Object",
@@ -28,6 +28,7 @@ import os
 import sys
 import bpy
 import bmesh
+import platform
 
 from dataclasses import dataclass
 from dataclasses import field
@@ -217,6 +218,7 @@ class PG_SharedProperties (PropertyGroup):
         description="How to Layout the atlases",
         items=[ ('OVERLAP', "Overlap", "Overlap all the atlases"),
                 ('SPREADX', "Spread X", "Seperate each atlas along the x-axis"),
+                ('UDIM', "UDIM", "Lay the atlases out for UDIM"),
                ]
         )
 
@@ -269,6 +271,12 @@ class PG_SharedProperties (PropertyGroup):
         name = "",
         description="The name of the lightmap UV (If it doesn't exist it will be created)",
         default = "UVMap_Lightmap",
+        )
+
+    packOnly : BoolProperty(
+        name="Pack Only",
+        description="Don't unwrap the meshes, only, pack them",
+        default = False
         )
     
 
@@ -353,7 +361,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
             return {'FINISHED'}
 
         #store the names of objects
-        rename_dict = dict();
+        rename_dict = dict()
         
         #make sure all the objects have ligthmap uvs
         for obj in selected_objects:
@@ -381,11 +389,28 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
                             uv_layers.active_index = i
                 obj.select_set(True)
 
+        #save all the current edges
+        if sharedProperties.packOnly:
+            edgeDict = dict()
+            for obj in selected_objects:
+                if obj.type == 'MESH':
+                    tempEdgeDict = dict()
+                    tempEdgeDict['object'] = obj.name
+                    tempEdgeDict['edges'] = []
+                    print(len(obj.data.edges))
+                    for i in range(0,len(obj.data.edges)):
+                        setEdge = obj.data.edges[i]
+                        tempEdgeDict['edges'].append(i)
+                    edgeDict[obj.name] = tempEdgeDict
 
-        #Convert to tris
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.quads_convert_to_tris(quad_method='FIXED', ngon_method='BEAUTY')
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.quads_convert_to_tris(quad_method='FIXED', ngon_method='BEAUTY')
+        else:
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.quads_convert_to_tris(quad_method='FIXED', ngon_method='BEAUTY')
+
         bpy.ops.object.mode_set(mode='OBJECT')
 
         #Create a fake obj export to a string
@@ -420,7 +445,15 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
 
         #get the path to xatlas
         file_path = os.path.dirname(os.path.abspath(__file__))
-        xatlas_path = os.path.join(file_path, "xatlas", "xatlas-blender.exe")
+        if platform.system() == "Windows":
+            xatlas_path = os.path.join(file_path, "xatlas", "xatlas-blender.exe")
+        elif platform.system() == "Linux":
+            xatlas_path = os.path.join(file_path, "xatlas", "xatlas-blender")
+            #need to set permissions for the process on linux
+            subprocess.Popen(
+                'chmod u+x "' + xatlas_path + '"',
+                shell=True
+            )
 
         #setup the arguments to be passed to xatlas-------------------
         arguments_string = ""
@@ -446,7 +479,9 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
                 else:
                     arguments_string = arguments_string + " -" + str(argumentKey) + " " + str(attrib)
 
-        
+        #add pack only option
+        if sharedProperties.packOnly:
+            arguments_string = arguments_string + " -packOnly"
 
         arguments_string = arguments_string + " -atlasLayout" + " " + sharedProperties.atlasLayout
 
@@ -457,7 +492,8 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
         xatlas_process = subprocess.Popen(
             xatlas_path + ' ' + arguments_string,
             stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE
+            stdout=subprocess.PIPE,
+            shell=True
         )
 
         #shove the fake file in stdin
@@ -590,6 +626,36 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
             #assign the mesh back to the original mesh
             bm.to_mesh(me)
         #END apply the output-------------------------------------------------------------
+
+
+        #Start setting the quads back again-------------------------------------------------------------
+        if sharedProperties.packOnly:
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='DESELECT')
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+            for edges in edgeDict:
+                edgeList = edgeDict[edges]
+                currentObject = bpy.context.scene.objects[edgeList['object']]
+                bm = bmesh.new()
+                bm.from_mesh(currentObject.data)
+                if hasattr(bm.edges, "ensure_lookup_table"): 
+                    bm.edges.ensure_lookup_table()
+
+                #assume that all the triangulated edges come after the original edges
+                newEdges = []
+                for edge in range(len(edgeList['edges']), len(bm.edges)):
+                    newEdge = bm.edges[edge]
+                    newEdge.select = True
+                    newEdges.append(newEdge)
+
+                bmesh.ops.dissolve_edges(bm, edges=newEdges, use_verts=False, use_face_split=False)
+                bpy.ops.object.mode_set(mode='OBJECT')
+                bm.to_mesh(currentObject.data)
+                bm.free()
+                bpy.ops.object.mode_set(mode='EDIT')
+
+        #End setting the quads back again-------------------------------------------------------------
 
         #select the original objects that were selected
         for objectName in rename_dict:
@@ -729,7 +795,11 @@ class OBJECT_PT_run_panel (Panel):
         row.label(text="Atlas Layout")
         row.prop( scene.shared_properties, 'atlasLayout')
         
+        
         box.operator("object.setup_unwrap", text="Run Xatlas")
+
+        row = box.row()
+        row.prop( scene.shared_properties, 'packOnly')
 # end panels------------------------------
 
 
