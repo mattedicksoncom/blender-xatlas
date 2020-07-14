@@ -218,6 +218,7 @@ class PG_SharedProperties (PropertyGroup):
         description="How to Layout the atlases",
         items=[ ('OVERLAP', "Overlap", "Overlap all the atlases"),
                 ('SPREADX', "Spread X", "Seperate each atlas along the x-axis"),
+                ('UDIM', "UDIM", "Lay the atlases out for UDIM"),
                ]
         )
 

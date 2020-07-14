@@ -396,9 +396,15 @@ int main(int argc, char *argv[])
 			const xatlas::Vertex &vertex = mesh.vertexArray[v];
 
 			float xOffset = 0;
+			float yOffset = 0;
 			//spread the uv axis along the x-axis
 			if (vertex.atlasIndex > 0 && atlasLayout == AtlasLayout::spreadX) {
 				xOffset = (float)vertex.atlasIndex;
+			}
+			if (vertex.atlasIndex > 0 && atlasLayout == AtlasLayout::udim) {
+				int xRowOffset = vertex.atlasIndex % 10;
+				xOffset = (float)xRowOffset;
+				yOffset = (float)floor(vertex.atlasIndex / 10);
 			}
 
 			const float *pos = &shapes[i].mesh.positions[vertex.xref * 3];
@@ -407,7 +413,7 @@ int main(int argc, char *argv[])
 				const float *normal = &shapes[i].mesh.normals[vertex.xref * 3];
 				//printf("vn %g %g %g\n", normal[0], normal[1], normal[2]);
 			}
-			printf("vt %g %g\n", (vertex.uv[0] / atlas->width) + xOffset, vertex.uv[1] / atlas->height);
+			printf("vt %g %g\n", (vertex.uv[0] / atlas->width) + xOffset, (vertex.uv[1] / atlas->height) + yOffset);
 		}
 			
 		for (uint32_t f = 0; f < mesh.indexCount; f += 3) {
