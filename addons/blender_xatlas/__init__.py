@@ -360,7 +360,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
             return {'FINISHED'}
 
         #store the names of objects
-        rename_dict = dict();
+        rename_dict = dict()
         
         #make sure all the objects have ligthmap uvs
         for obj in selected_objects:
@@ -388,11 +388,73 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
                             uv_layers.active_index = i
                 obj.select_set(True)
 
+        #save all the current edges
+        if sharedProperties.packOnly:
+            edgeDict = dict()
+            for obj in selected_objects:
+                if obj.type == 'MESH':
+                    tempEdgeDict = dict()
+                    tempEdgeDict['object'] = obj.name
+                    # tempEdgeDict['edges'] = obj.data.edges
+                    tempEdgeDict['edges'] = []
+                    print(len(obj.data.edges))
+                    for i in range(0,len(obj.data.edges)):
+                        setEdge = obj.data.edges[i]
+                        tempEdgeDict['edges'].append(i)
+                    edgeDict[obj.name] = tempEdgeDict
 
-        #Convert to tris
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.quads_convert_to_tris(quad_method='FIXED', ngon_method='BEAUTY')
+            print(edgeDict)
+            #Convert to tris
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.quads_convert_to_tris(quad_method='FIXED', ngon_method='BEAUTY')
+            bpy.ops.mesh.select_all(action='DESELECT')
+            # bpy.ops.object.mode_set(mode='OBJECT')
+
+            # for edges in edgeDict:
+            #     edgeList = edgeDict[edges]
+            #     currentObject = bpy.context.scene.objects[edgeList['object']]
+            #     bm = bmesh.new()
+            #     bm.from_mesh(currentObject.data)
+            #     if hasattr(bm.edges, "ensure_lookup_table"): 
+            #         bm.edges.ensure_lookup_table()
+                
+            #     print(edgeList['edges'])
+            #     print(edgeList['object'])
+            #     # currentObject = selected_objects[edgeList['object']]
+                
+            #     # for edge in edgeList['edges']:
+            #     #     newEdge = bm.edges[edge]
+            #     #     # newEdge.verts[0].select = True
+            #     #     # newEdge.verts[1].select = True
+            #     #     newEdge.select = True
+
+            #     #assume that all the triangulated edges come after the original edges
+            #     newEdges = []
+            #     for edge in range(len(edgeList['edges']), len(bm.edges)):
+            #         newEdge = bm.edges[edge]
+            #         # newEdge.verts[0].select = True
+            #         # newEdge.verts[1].select = True
+            #         newEdge.select = True
+            #         newEdges.append(newEdge)
+
+            #     #bmesh.ops.dissolve_edges(bm, edges, use_verts, use_face_split)
+            #     bmesh.ops.dissolve_edges(bm, edges=newEdges, use_verts=False, use_face_split=False)
+            #     # bpy.ops.object.select_all(action='INVERT')
+            #     bpy.ops.object.mode_set(mode='OBJECT')
+            #     bm.to_mesh(currentObject.data)
+            #     bm.free()
+            #     bpy.ops.object.mode_set(mode='EDIT')
+                
+
+            # print("PASSED EDGES")
+
+            # return {'FINISHED'}
+        else:
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.quads_convert_to_tris(quad_method='FIXED', ngon_method='BEAUTY')
+
         bpy.ops.object.mode_set(mode='OBJECT')
 
         #Create a fake obj export to a string
@@ -608,6 +670,49 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
             #assign the mesh back to the original mesh
             bm.to_mesh(me)
         #END apply the output-------------------------------------------------------------
+
+
+        #Star setting the quads back again
+        if sharedProperties.packOnly:
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+            for edges in edgeDict:
+                edgeList = edgeDict[edges]
+                currentObject = bpy.context.scene.objects[edgeList['object']]
+                bm = bmesh.new()
+                bm.from_mesh(currentObject.data)
+                if hasattr(bm.edges, "ensure_lookup_table"): 
+                    bm.edges.ensure_lookup_table()
+                
+                print(edgeList['edges'])
+                print(edgeList['object'])
+                # currentObject = selected_objects[edgeList['object']]
+                
+                # for edge in edgeList['edges']:
+                #     newEdge = bm.edges[edge]
+                #     # newEdge.verts[0].select = True
+                #     # newEdge.verts[1].select = True
+                #     newEdge.select = True
+
+                #assume that all the triangulated edges come after the original edges
+                newEdges = []
+                for edge in range(len(edgeList['edges']), len(bm.edges)):
+                    newEdge = bm.edges[edge]
+                    # newEdge.verts[0].select = True
+                    # newEdge.verts[1].select = True
+                    newEdge.select = True
+                    newEdges.append(newEdge)
+
+                #bmesh.ops.dissolve_edges(bm, edges, use_verts, use_face_split)
+                bmesh.ops.dissolve_edges(bm, edges=newEdges, use_verts=False, use_face_split=False)
+                # bpy.ops.object.select_all(action='INVERT')
+                bpy.ops.object.mode_set(mode='OBJECT')
+                bm.to_mesh(currentObject.data)
+                bm.free()
+                bpy.ops.object.mode_set(mode='EDIT')
+                
+
+            print("PASSED EDGES")
 
         #select the original objects that were selected
         for objectName in rename_dict:
