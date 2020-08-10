@@ -18,7 +18,7 @@ bl_info = {
 	"author": "mattedickson",
 	"wiki_url": "https://github.com/mattedicksoncom/blender-xatlas/",
 	"tracker_url": "https://github.com/mattedicksoncom/blender-xatlas/issues",
-	"version": (0, 0, 6),
+	"version": (0, 0, 7),
 	"blender": (2, 83, 0),
 	"location": "3D View > Toolbox",
 	"category": "Object",
@@ -278,7 +278,7 @@ class PG_SharedProperties (PropertyGroup):
         description="Don't unwrap the meshes, only, pack them",
         default = False
         )
-    
+
 
 # end PropertyGroups---------------------------
 
@@ -328,7 +328,7 @@ class Setup_Unwrap(bpy.types.Operator):
         context.view_layer.objects.active = startingActiveObject
         bpy.ops.object.mode_set(mode=startingMode)
         # bpy.context.selected_objects = startingSelection
-        
+
 
         return {'FINISHED'}
 
@@ -362,7 +362,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
 
         #store the names of objects
         rename_dict = dict()
-        
+
         #make sure all the objects have ligthmap uvs
         for obj in selected_objects:
             if obj.type == 'MESH':
@@ -427,13 +427,13 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
             use_mesh_modifiers=True,
             use_edges=True,
             use_smooth_groups=False,
-            use_smooth_groups_bitflags=False, 
+            use_smooth_groups_bitflags=False,
             use_normals=True,
             use_uvs=True,
             use_materials=False,
             use_triangles=False,
-            use_nurbs=False, 
-            use_vertex_groups=False, 
+            use_nurbs=False,
+            use_vertex_groups=False,
             use_blen_objects=True,
             group_by_object=False,
             group_by_material=False,
@@ -490,7 +490,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
 
         #RUN xatlas process
         xatlas_process = subprocess.Popen(
-            xatlas_path + ' ' + arguments_string,
+            r'"{}"'.format(xatlas_path) + ' ' + arguments_string,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             shell=True
@@ -520,17 +520,17 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
             obName: string = ""
             uvArray: List[float] = field(default_factory=list)
             faceArray: List[int] = field(default_factory=list)
-        
+
         convertedObjects = []
         uvArrayComplete = []
 
-        
+
         #search through the out put for STARTOBJ
         #then start reading the objects
         obTest = None
         startRead = False
         for line in outObj.splitlines():
-            
+
             line_split = line.split()
 
             if not line_split:
@@ -542,14 +542,14 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
                 print("Start reading the objects----------------------------------------")
                 startRead = True
                 # obTest = uvObject()
-            
+
             if startRead:
                 #if it's a new obj
                 if line_start == 'o':
                     #if there is already an object append it
                     if obTest is not None:
                         convertedObjects.append(obTest)
-                    
+
                     obTest = uvObject() #create new uv object
                     obTest.obName = line_split[1]
 
@@ -575,8 +575,8 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
         #append the final object
         convertedObjects.append(obTest)
         # print(convertedObjects)
-        
-        
+
+
         #apply the output-------------------------------------------------------------
         #copy the uvs to the original objects
         # objIndex = 0
@@ -601,7 +601,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
 
             nFaces = len(bm.faces)
             #need to ensure lookup table for some reason?
-            if hasattr(bm.faces, "ensure_lookup_table"): 
+            if hasattr(bm.faces, "ensure_lookup_table"):
                 bm.faces.ensure_lookup_table()
 
             #loop through the faces
@@ -639,7 +639,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
                 currentObject = bpy.context.scene.objects[edgeList['object']]
                 bm = bmesh.new()
                 bm.from_mesh(currentObject.data)
-                if hasattr(bm.edges, "ensure_lookup_table"): 
+                if hasattr(bm.edges, "ensure_lookup_table"):
                     bm.edges.ensure_lookup_table()
 
                 #assume that all the triangulated edges come after the original edges
@@ -663,7 +663,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
                 current_object = bpy.context.scene.objects[objectName]
                 current_object.select_set(True)
                 context.view_layer.objects.active = current_object
-        
+
         bpy.ops.object.mode_set(mode=startingMode)
 
         print("Finished Xatlas----------------------------------------")
@@ -676,7 +676,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
 class OBJECT_PT_xatlas_panel (Panel):
     bl_idname = "OBJECT_PT_xatlas_panel"
     bl_label = "Xatlas Tools"
-    bl_space_type = "VIEW_3D"   
+    bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Xatlas"
     bl_context = ""
@@ -696,7 +696,7 @@ class OBJECT_PT_xatlas_panel (Panel):
 class OBJECT_PT_pack_panel (Panel):
     bl_idname = "OBJECT_PT_pack_panel"
     bl_label = "Pack Options"
-    bl_space_type = "VIEW_3D"   
+    bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Xatlas"
     bl_parent_id = 'OBJECT_PT_xatlas_panel'
@@ -721,7 +721,7 @@ class OBJECT_PT_pack_panel (Panel):
 class OBJECT_PT_chart_panel (Panel):
     bl_idname = "OBJECT_PT_chart_panel"
     bl_label = "Chart Options"
-    bl_space_type = "VIEW_3D"   
+    bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Xatlas"
     bl_parent_id = 'OBJECT_PT_xatlas_panel'
@@ -745,7 +745,7 @@ class OBJECT_PT_chart_panel (Panel):
 class OBJECT_PT_run_panel (Panel):
     bl_idname = "OBJECT_PT_run_panel"
     bl_label = "Run Xatlas"
-    bl_space_type = "VIEW_3D"   
+    bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Xatlas"
     bl_parent_id = 'OBJECT_PT_xatlas_panel'
@@ -794,8 +794,8 @@ class OBJECT_PT_run_panel (Panel):
         row = box.row()
         row.label(text="Atlas Layout")
         row.prop( scene.shared_properties, 'atlasLayout')
-        
-        
+
+
         box.operator("object.setup_unwrap", text="Run Xatlas")
 
         row = box.row()
@@ -830,7 +830,7 @@ def register():
     bpy.types.Scene.chart_tool = PointerProperty(type=PG_ChartProperties)
     bpy.types.Scene.shared_properties = PointerProperty(type=PG_SharedProperties)
 
-    
+
 
     #
 
@@ -843,8 +843,8 @@ def unregister():
     del bpy.types.Scene.shared_properties
     del bpy.types.Scene.chart_tool
     del bpy.types.Scene.pack_tool
-    
-    
+
+
 
 
 
