@@ -8897,7 +8897,9 @@ namespace xatlas {
 						// Compute chart scale
 						float scale = 1.0f;
 						if (chart->parametricArea != 0.0f) {
-							scale = (chart->surfaceArea / chart->parametricArea) * m_texelsPerUnit;
+							//scale = (chart->surfaceArea / chart->parametricArea) * m_texelsPerUnit;
+							//see https://github.com/jpcy/xatlas/issues/67
+							scale = sqrtf(chart->surfaceArea / chart->parametricArea) * m_texelsPerUnit;
 							XA_ASSERT(isFinite(scale));
 						}
 						// Translate, rotate and scale vertices. Compute extents.
