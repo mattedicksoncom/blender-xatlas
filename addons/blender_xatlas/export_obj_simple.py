@@ -31,12 +31,11 @@ from bpy_extras.wm_utils.progress_report import (
 )
 
 
-def name_compat(name):
+def name_compat(name, rename_dict):
     if name is None:
         return 'None'
     else:
-        return name.replace(' ', '_')
-
+        return rename_dict[name][1]
 
 def mesh_triangulate(me):
     import bmesh
@@ -48,7 +47,7 @@ def mesh_triangulate(me):
 
 
 
-def write_file(filepath, objects, scene,
+def write_file(rename_dict, filepath, objects, scene,
                mainUVChoiceType,
                uvIndex,
                uvName,
@@ -199,13 +198,15 @@ def write_file(filepath, objects, scene,
             else:
                 smooth_groups, smooth_groups_tot = (), 0
 
-            materials = me.materials[:]
-            material_names = [m.name if m else None for m in materials]
+            # materials = me.materials[:]
+            materials = None
+            # material_names = [m.name if m else None for m in materials]
+            material_names = None
 
             # avoid bad index errors
             if not materials:
                 materials = [None]
-                material_names = [name_compat(None)]
+                material_names = [name_compat(None, rename_dict)]
 
             # Sort by Material, then images
             # so we dont over context switch in the obj file.
@@ -243,7 +244,7 @@ def write_file(filepath, objects, scene,
                 #     obnamestring = '%s_%s' % (name_compat(name1), name_compat(name2))
 
                 #assume all objects have unique names for now
-                obnamestring = name_compat(name1)
+                obnamestring = name_compat(name1, rename_dict)
 
                 if EXPORT_BLEN_OBS:
                     fw('o %s\n' % obnamestring)  # Write Object name
@@ -409,6 +410,7 @@ def write_file(filepath, objects, scene,
 
 
 def _write(
+            rename_dict,
            context,
            filepath,
            mainUVChoiceType,
@@ -446,6 +448,7 @@ def _write(
         objects = context.selected_objects
 
         write_file(
+            rename_dict,
             filepath,
             objects,
             scene,
@@ -479,6 +482,7 @@ Currently the exporter lacks these features:
 """
 
 def save(
+        rename_dict,
         context,
         filepath,
         mainUVChoiceType,
@@ -506,7 +510,7 @@ def save(
         path_mode='AUTO'
         ):
 
-    _write(context,filepath,
+    _write(rename_dict, context,filepath,
         mainUVChoiceType,
         uvIndex,
         uvName,
