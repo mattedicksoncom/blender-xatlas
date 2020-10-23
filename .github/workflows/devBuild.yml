@@ -39,7 +39,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         with:
-          ref:'dev'
+          ref: 'dev'
       - name: Setup Project 1
         run: sudo apt-get update -qq
       - name: Setup Project 2
