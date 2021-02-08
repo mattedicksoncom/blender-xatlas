@@ -18,7 +18,7 @@ bl_info = {
 	"author": "mattedickson",
 	"wiki_url": "https://github.com/mattedicksoncom/blender-xatlas/",
 	"tracker_url": "https://github.com/mattedicksoncom/blender-xatlas/issues",
-	"version": (0, 0, 7),
+	"version": (0, 0, 8),
 	"blender": (2, 83, 0),
 	"location": "3D View > Toolbox",
 	"category": "Object",
@@ -42,6 +42,8 @@ import threading
 from threading  import Thread
 from queue import Queue, Empty
 import string
+
+import uuid
 
 
 import importlib
@@ -202,6 +204,11 @@ def get_collectionNames(self, context):
         colllectionNames.append((collection.name, collection.name, ""))
     return colllectionNames
 
+def gen_safe_name():
+    genId = uuid.uuid4().hex
+    # genId = "u_" + genId.replace("-","_")
+    return "u_" + genId
+
 class PG_SharedProperties (PropertyGroup):
 
     unwrapSelection : EnumProperty(
@@ -360,13 +367,16 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
             self.report({"WARNING"}, "Nothing Selected, please select Something")
             return {'FINISHED'}
 
-        #store the names of objects
+        #store the names of objects to be lightmapped
         rename_dict = dict()
+        safe_dict = dict()
 
         #make sure all the objects have ligthmap uvs
         for obj in selected_objects:
             if obj.type == 'MESH':
-                rename_dict[obj.name] = obj.name
+                safe_name = gen_safe_name();
+                rename_dict[obj.name] = (obj.name,safe_name)
+                safe_dict[safe_name] = obj.name
                 context.view_layer.objects.active = obj
                 if obj.data.users > 1:
                     obj.data = obj.data.copy() #make single user copy
@@ -417,6 +427,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
         #Will strip this down further later
         fakeFile = StringIO()
         export_obj_simple.save(
+            rename_dict=rename_dict,
             context=bpy.context,
             filepath=fakeFile,
             mainUVChoiceType=sharedProperties.mainUVChoiceType,
@@ -586,7 +597,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
             bpy.ops.object.select_all(action='DESELECT')
 
             obTest = importObject
-
+            obTest.obName = safe_dict[obTest.obName] #probably shouldn't just replace it
             bpy.context.scene.objects[obTest.obName].select_set(True)
             context.view_layer.objects.active = bpy.context.scene.objects[obTest.obName]
             bpy.ops.object.mode_set(mode = 'OBJECT')
@@ -659,8 +670,8 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
 
         #select the original objects that were selected
         for objectName in rename_dict:
-            if objectName in bpy.context.scene.objects:
-                current_object = bpy.context.scene.objects[objectName]
+            if objectName[0] in bpy.context.scene.objects:
+                current_object = bpy.context.scene.objects[objectName[0]]
                 current_object.select_set(True)
                 context.view_layer.objects.active = current_object
 
