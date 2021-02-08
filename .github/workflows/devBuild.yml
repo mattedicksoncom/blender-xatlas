@@ -115,7 +115,7 @@ jobs:
       - name: Build Artifact
         shell: powershell
         run: |
-          Compress-7Zip "$Env:GITHUB_WORKSPACE\addons\blender_xatlas" -ArchiveFileName "blender-xatlasX64.zip" -Format Zip
+          Compress-7Zip "$Env:GITHUB_WORKSPACE\addons\blender_xatlas" -PreserveDirectoryRoot -ArchiveFileName "blender-xatlasX64.zip" -Format Zip
       - name: Upload Release Asset (x64)
         id: upload-release-asset-x64
         uses: actions/upload-release-asset@v1
@@ -142,7 +142,7 @@ jobs:
       - name: Build Artifact
         shell: powershell
         run: |
-          Compress-7Zip "$Env:GITHUB_WORKSPACE\addons\blender_xatlas" -ArchiveFileName "blender-xatlasX86.zip" -Format Zip
+          Compress-7Zip "$Env:GITHUB_WORKSPACE\addons\blender_xatlas" -PreserveDirectoryRoot -ArchiveFileName "blender-xatlasX86.zip" -Format Zip
 
       - name: Upload Release Asset (x86)
         id: upload-release-asset-x86
