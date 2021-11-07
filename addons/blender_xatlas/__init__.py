@@ -456,16 +456,22 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
 
         #get the path to xatlas
         file_path = os.path.dirname(os.path.abspath(__file__))
-        if platform.system() == "Windows":
+        if platform.system() == 'Windows':
             xatlas_path = os.path.join(file_path, "xatlas", "xatlas-blender.exe")
-        elif platform.system() == "Linux":
+        elif platform.system() == 'Linux':
             xatlas_path = os.path.join(file_path, "xatlas", "xatlas-blender")
             #need to set permissions for the process on linux
             subprocess.Popen(
                 'chmod u+x "' + xatlas_path + '"',
                 shell=True
             )
-
+        elif platform.system() == 'Darwin':
+            xatlas_path = os.path.join(file_path, "xatlas", "xatlas-blender")
+            #need to set permissions for the process on osx
+            subprocess.Popen(
+                'chmod u+x "' + xatlas_path + '"',
+                shell=True
+            )
         #setup the arguments to be passed to xatlas-------------------
         arguments_string = ""
         for argumentKey in packOptions.__annotations__.keys():
