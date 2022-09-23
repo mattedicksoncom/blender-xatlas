@@ -47,7 +47,13 @@ import uuid
 
 
 import importlib
-sys.path.append(__path__)
+
+# make sure __path__ is not a list here, to prevent crash when using blender_vscode
+__safe_path__ = __path__
+if type(__safe_path__) == list:
+    __safe_path__ = __safe_path__[0]
+
+sys.path.append(__safe_path__)
 from . import export_obj_simple
 
 importlib.reload(export_obj_simple)
@@ -456,16 +462,22 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
 
         #get the path to xatlas
         file_path = os.path.dirname(os.path.abspath(__file__))
-        if platform.system() == "Windows":
+        if platform.system() == 'Windows':
             xatlas_path = os.path.join(file_path, "xatlas", "xatlas-blender.exe")
-        elif platform.system() == "Linux":
+        elif platform.system() == 'Linux':
             xatlas_path = os.path.join(file_path, "xatlas", "xatlas-blender")
             #need to set permissions for the process on linux
             subprocess.Popen(
                 'chmod u+x "' + xatlas_path + '"',
                 shell=True
             )
-
+        elif platform.system() == 'Darwin':
+            xatlas_path = os.path.join(file_path, "xatlas", "xatlas-blender")
+            #need to set permissions for the process on osx
+            subprocess.Popen(
+                'chmod u+x "' + xatlas_path + '"',
+                shell=True
+            )
         #setup the arguments to be passed to xatlas-------------------
         arguments_string = ""
         for argumentKey in packOptions.__annotations__.keys():

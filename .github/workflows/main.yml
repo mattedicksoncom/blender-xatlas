@@ -1,0 +1,152 @@
+name: Build Releases
+# on:
+#    push:
+#       branches:
+#         - master
+#       tags:
+#         - 'v*'
+on: 
+  workflow_dispatch:
+      inputs:
+        tags:
+          default: 
+            'v0.0.1'
+jobs:
+  createRelease:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      output1: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name:  ${{ github.event.inputs.tags }}
+          release_name: ${{ github.event.inputs.tags }}
+          body: |
+            Release ${{ github.event.inputs.tags }}
+          draft: false
+          prerelease: true
+    
+  create_release_linux:
+    needs: [createRelease]
+    name: Create GitHub Release Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Project 1
+        run: sudo apt-get update -qq
+      - name: Setup Project 2
+        run: sudo apt-get install libgl1-mesa-dev libgtk-3-dev xorg-dev
+      
+      - name: install
+        run: wget https://github.com/premake/premake-core/releases/download/v5.0.0-alpha13/premake-5.0.0-alpha13-linux.tar.gz -O premake.tar.gz
+      - name: install2
+        run: tar -xf premake.tar.gz
+      - name: install3
+        run: ./premake5 --cc=gcc --file=./xatlas_src/premake5.lua gmake 
+      - name: install4
+        run: cd ./xatlas_src/build/gmake_gcc
+      - name: install5
+        run: |
+          cd ./xatlas_src/build/gmake_gcc
+          make
+#       - name: check folder
+#         run: |
+#           cd ./xatlas_src/build/gmake_gcc/bin/x86_64/Release
+#           ls
+          
+          
+      - name: copy file
+        run: |
+          rm ./addons/blender_xatlas/xatlas/*
+          cp -R ./xatlas_src/build/gmake_gcc/bin/x86_64/Release/xatlas-blender ./addons/blender_xatlas/xatlas/
+          
+      - name: Zip Folder
+        run: |
+          cd ./addons
+          zip -r blender-xatlas-linux.zip ./blender_xatlas
+        
+      - name: Upload Release Asset Linux
+        id: upload-release-asset-linux
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.createRelease.outputs.output1 }}
+          asset_path: ./addons/blender-xatlas-linux.zip
+          asset_name: blender-xatlas-linux.zip
+          asset_content_type: application/zip
+     
+  create_release_windows:
+    needs: [createRelease]
+    name: Create GitHub Release Windows
+    runs-on: windows-2019
+    steps:
+      - name: Install 7Zip PowerShell Module
+        shell: powershell
+        run: Install-Module 7Zip4PowerShell -Force -Verbose
+        
+      - uses: actions/checkout@v2
+        
+      - name: Clear Old Folder
+        shell: powershell
+        run: |
+            Remove-Item "$Env:GITHUB_WORKSPACE\addons\blender_xatlas\xatlas\*" -Recurse -Force
+      
+      - name: Create Project Binary
+        shell: cmd
+        run: call .\xatlas_src\bin\premake5.exe --file=.\xatlas_src\premake5.lua vs2019
+        
+
+      - name: Build Binary
+        run: |
+            cd “C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin\”
+            .\MSBuild.exe $Env:GITHUB_WORKSPACE\xatlas_src\build\vs2019\xatlas-blender.vcxproj /p:Configuration=Release /p:Platform=x64
+        
+      - name: Build Artifact
+        shell: powershell
+        run: |
+          Compress-7Zip "$Env:GITHUB_WORKSPACE\addons\blender_xatlas" -PreserveDirectoryRoot -ArchiveFileName "blender-xatlasX64.zip" -Format Zip
+      - name: Upload Release Asset (x64)
+        id: upload-release-asset-x64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.createRelease.outputs.output1 }}
+          asset_path: ./blender-xatlasX64.ZIP
+          asset_name: blender-xatlasX64.ZIP
+          asset_content_type: application/zip
+ 
+ 
+      #run again but for x86---------------------------------------
+      - name: Clear X64 Folder
+        shell: powershell
+        run: |
+            Remove-Item "$Env:GITHUB_WORKSPACE\addons\blender_xatlas\xatlas\*" -Recurse -Force
+            
+      - name: Build Binary
+        run: |
+            cd “C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin\”
+            .\MSBuild.exe $Env:GITHUB_WORKSPACE\xatlas_src\build\vs2019\xatlas-blender.vcxproj /p:Configuration=Release /p:Platform=x86
+        
+      - name: Build Artifact
+        shell: powershell
+        run: |
+          Compress-7Zip "$Env:GITHUB_WORKSPACE\addons\blender_xatlas" -PreserveDirectoryRoot -ArchiveFileName "blender-xatlasX86.zip" -Format Zip
+
+      - name: Upload Release Asset (x86)
+        id: upload-release-asset-x86
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.createRelease.outputs.output1 }}
+          asset_path: ./blender-xatlasX86.ZIP
+          asset_name: blender-xatlasX86.ZIP
+          asset_content_type: application/zip

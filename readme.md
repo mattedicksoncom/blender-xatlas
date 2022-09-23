@@ -2,8 +2,8 @@
 
 I'm so sorry. This is not good. I have no idea what I'm doing.  
 
-This is a rough addon for blender allowing you to use xatlas to unwrap and pack your uvs  
-It currently only works on Windows  
+This is a rough add-on for Blender allowing you to use Xatlas to unwrap and pack your uvs  
+It currently works on Windows/Linux (Tested on Windows 10, Windows 8, Ubuntu)  
 Code in /xatlas_src is modified from [xatlas](https://github.com/jpcy/xatlas/)  
 
 <p float="left">
@@ -15,14 +15,14 @@ Code in /xatlas_src is modified from [xatlas](https://github.com/jpcy/xatlas/)
 ## Usage
 
 ### Install
-1. Add ```./addons/blender-xatlas``` to you blender addons folder, or download the .zip in releases and install in blender
-2. Once enabled it will appear under the tool option in 3D view
+1. Add ```./addons/blender-xatlas``` to you Blender addons folder, or download the .zip in releases and install in Blender [Preferences -> Add-ons -> Install... ]
+2. Once enabled it will appear under the Xatlas option in 3D View sidebar (Default open with 'n')
 
 
 ### Use
-Warning! The tool will make a single user copy and triangulate your mesh
+Warning! The tool will make a single user copy and triangulate your mesh (Unless using 'Pack Only')
 <img src="./readme_images/tool-location.png" alt="Tool Location" width="569" height="408">
-1. Make sure you file is saved
+1. Make sure your file is saved
 2. Change your settings under Xatlas Tools
 3. Select the objects you wish to unwrap and unpack
 4. Click ```Run Xatlas```
