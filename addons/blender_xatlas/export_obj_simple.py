@@ -185,8 +185,11 @@ def write_file(rename_dict, filepath, objects, scene,
                 ob_for_convert.to_mesh_clear()
                 continue  # dont bother with this mesh.
 
-            if EXPORT_NORMALS and face_index_pairs:
-                me.calc_normals_split()
+            # 4.1 API Notes: create_normals_split, calc_normals_split, and free_normals_split are removed,
+            # and are replaced by the simpler Mesh.corner_normals collection property
+            if bpy.app.version < (4, 1, 0):
+                if EXPORT_NORMALS and face_index_pairs:
+                    me.calc_normals_split()
                 # No need to call me.free_normals_split later, as this mesh is deleted anyway!
 
             loops = me.loops
