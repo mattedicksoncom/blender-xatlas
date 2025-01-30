@@ -46,11 +46,11 @@ jobs:
       - name: use last working version of gcc11
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-11.4.0 g++-11.4.0
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11.4.0 10
-          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11.4.0 10
-          sudo update-alternatives --set gcc /usr/bin/gcc-11.4.0
-          sudo update-alternatives --set g++ /usr/bin/g++-11.4.0
+          sudo apt-get install -y gcc-11 g++-11
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 10
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 10
+          sudo update-alternatives --set gcc /usr/bin/gcc-11
+          sudo update-alternatives --set g++ /usr/bin/g++-11
           gcc --version
           g++ --version
       
