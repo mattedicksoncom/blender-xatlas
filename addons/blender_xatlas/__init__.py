@@ -292,6 +292,12 @@ class PG_SharedProperties (PropertyGroup):
         default = False
         )
 
+    individualAtlasPerObject : BoolProperty(
+    name="Individual Atlas Per Object",
+    description="Each object will be unwrapped separately using the full atlas space. Useful for exporting to game engines.",
+    default=False
+)
+
 
 # end PropertyGroups---------------------------
 
@@ -332,7 +338,14 @@ class Setup_Unwrap(bpy.types.Operator):
                             current_object.select_set(True)
             selected_objects = bpy.context.selected_objects
 
-        Unwrap_Lightmap_Group_Xatlas_2.execute(self, context)
+        if sharedProperties.individualAtlasPerObject:
+            for obj in selected_objects:
+                bpy.ops.object.select_all(action='DESELECT')
+                obj.select_set(True)
+                context.view_layer.objects.active = obj
+                Unwrap_Lightmap_Group_Xatlas_2.execute(self, context)
+        else:
+            Unwrap_Lightmap_Group_Xatlas_2.execute(self, context)
 
         #reset everything--------------------------------------------
         bpy.ops.object.select_all(action='DESELECT')
@@ -454,7 +467,7 @@ class Unwrap_Lightmap_Group_Xatlas_2(bpy.types.Operator):
             use_blen_objects=True,
             group_by_object=False,
             group_by_material=False,
-            keep_vertex_order=False,
+            keep_vertex_order=True,
         )
 
         #print just for reference
@@ -823,6 +836,8 @@ class OBJECT_PT_run_panel (Panel):
 
         row = box.row()
         row.prop( scene.shared_properties, 'packOnly')
+        row = box.row()
+        row.prop(scene.shared_properties, 'individualAtlasPerObject')
 # end panels------------------------------
 
 
