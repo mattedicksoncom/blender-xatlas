@@ -22,7 +22,7 @@ project "xatlas-blender"
 	sanitizer()
 	files "xatlas-blender.cpp"	
 	includedirs(THIRDPARTY_DIR)
-	links { "stb_image_write", "tiny_obj_loader", "xatlas" }
+	links { "tiny_obj_loader", "xatlas" }
 	filter "action:vs*"
 		files "xatlas.natvis"
 		postbuildcommands {
@@ -76,64 +76,64 @@ group "thirdparty"
 -- 	filter { "system:windows", "action:gmake" }
 -- 		includedirs { path.join(BX_DIR, "include/compat/mingw") }
 		
-project "bimg"
-	kind "StaticLib"
-	language "C++"
-	cppdialect "C++14"
-	exceptionhandling "Off"
-	rtti "Off"
-	sanitizer()
-	defines
-	{
-		"BIMG_DECODE_ENABLE=0"
-	}
-	files
-	{
-		path.join(BIMG_DIR, "include/bimg/*.h"),
-		path.join(BIMG_DIR, "src/*.cpp"),
-		path.join(BIMG_DIR, "src/*.h")
-	}
-	includedirs
-	{
-		path.join(BX_DIR, "include"),
-		path.join(BIMG_DIR, "include")
-	}
-	filter "action:vs*"
-		defines { "_CRT_SECURE_NO_WARNINGS" }
-		includedirs { path.join(BX_DIR, "include/compat/msvc") }
-	filter { "system:windows", "action:gmake" }
-		includedirs { path.join(BX_DIR, "include/compat/mingw") }
+-- project "bimg"
+-- 	kind "StaticLib"
+-- 	language "C++"
+-- 	cppdialect "C++14"
+-- 	exceptionhandling "Off"
+-- 	rtti "Off"
+-- 	sanitizer()
+-- 	defines
+-- 	{
+-- 		"BIMG_DECODE_ENABLE=0"
+-- 	}
+-- 	files
+-- 	{
+-- 		path.join(BIMG_DIR, "include/bimg/*.h"),
+-- 		path.join(BIMG_DIR, "src/*.cpp"),
+-- 		path.join(BIMG_DIR, "src/*.h")
+-- 	}
+-- 	includedirs
+-- 	{
+-- 		path.join(BX_DIR, "include"),
+-- 		path.join(BIMG_DIR, "include")
+-- 	}
+-- 	filter "action:vs*"
+-- 		defines { "_CRT_SECURE_NO_WARNINGS" }
+-- 		includedirs { path.join(BX_DIR, "include/compat/msvc") }
+-- 	filter { "system:windows", "action:gmake" }
+-- 		includedirs { path.join(BX_DIR, "include/compat/mingw") }
 
-project "bx"
-	kind "StaticLib"
-	language "C++"
-	cppdialect "C++14"
-	exceptionhandling "Off"
-	rtti "Off"
-	sanitizer()
-	defines	{ "__STDC_FORMAT_MACROS" }
-	files
-	{
-		path.join(BX_DIR, "include/bx/*.h"),
-		path.join(BX_DIR, "include/bx/inline/*.inl"),
-		path.join(BX_DIR, "include/tinystl/*.h"),
-		path.join(BX_DIR, "src/*.cpp")
-	}
-	excludes
-	{
-		path.join(BX_DIR, "src/amalgamated.cpp"),
-		path.join(BX_DIR, "src/crtnone.cpp")
-	}
-	includedirs
-	{
-		path.join(BX_DIR, "3rdparty"),
-		path.join(BX_DIR, "include")
-	}
-	filter "action:vs*"
-		defines { "_CRT_SECURE_NO_WARNINGS" }
-		includedirs { path.join(BX_DIR, "include/compat/msvc") }
-	filter { "system:windows", "action:gmake" }
-		includedirs { path.join(BX_DIR, "include/compat/mingw") }
+-- project "bx"
+-- 	kind "StaticLib"
+-- 	language "C++"
+-- 	cppdialect "C++14"
+-- 	exceptionhandling "Off"
+-- 	rtti "Off"
+-- 	sanitizer()
+-- 	defines	{ "__STDC_FORMAT_MACROS" }
+-- 	files
+-- 	{
+-- 		path.join(BX_DIR, "include/bx/*.h"),
+-- 		path.join(BX_DIR, "include/bx/inline/*.inl"),
+-- 		path.join(BX_DIR, "include/tinystl/*.h"),
+-- 		path.join(BX_DIR, "src/*.cpp")
+-- 	}
+-- 	excludes
+-- 	{
+-- 		path.join(BX_DIR, "src/amalgamated.cpp"),
+-- 		path.join(BX_DIR, "src/crtnone.cpp")
+-- 	}
+-- 	includedirs
+-- 	{
+-- 		path.join(BX_DIR, "3rdparty"),
+-- 		path.join(BX_DIR, "include")
+-- 	}
+-- 	filter "action:vs*"
+-- 		defines { "_CRT_SECURE_NO_WARNINGS" }
+-- 		includedirs { path.join(BX_DIR, "include/compat/msvc") }
+-- 	filter { "system:windows", "action:gmake" }
+-- 		includedirs { path.join(BX_DIR, "include/compat/mingw") }
 
 project "cgltf"
 	kind "StaticLib"
@@ -248,23 +248,23 @@ project "OpenFBX"
 	sanitizer()
 	files(path.join(OPENFBX_DIR, "*.*"))
 	
-project "stb_image"
-	kind "StaticLib"
-	language "C"
-	sanitizer()
-	files(path.join(THIRDPARTY_DIR, "stb_image.*"))
+-- project "stb_image"
+-- 	kind "StaticLib"
+-- 	language "C"
+-- 	sanitizer()
+-- 	files(path.join(THIRDPARTY_DIR, "stb_image.*"))
 	
-project "stb_image_resize"
-	kind "StaticLib"
-	language "C"
-	sanitizer()
-	files(path.join(THIRDPARTY_DIR, "stb_image_resize.*"))
+-- project "stb_image_resize"
+-- 	kind "StaticLib"
+-- 	language "C"
+-- 	sanitizer()
+-- 	files(path.join(THIRDPARTY_DIR, "stb_image_resize.*"))
 	
-project "stb_image_write"
-	kind "StaticLib"
-	language "C"
-	sanitizer()
-	files(path.join(THIRDPARTY_DIR, "stb_image_write.*"))
+-- project "stb_image_write"
+-- 	kind "StaticLib"
+-- 	language "C"
+-- 	sanitizer()
+-- 	files(path.join(THIRDPARTY_DIR, "stb_image_write.*"))
 	
 project "tiny_obj_loader"
 	kind "StaticLib"
