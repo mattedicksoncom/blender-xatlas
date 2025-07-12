@@ -96,7 +96,7 @@ jobs:
   create_release_windows:
     needs: [createRelease]
     name: Create GitHub Release Windows
-    runs-on: windows-2019
+    runs-on: windows-2022
     steps:
       - name: Install 7Zip PowerShell Module
         shell: powershell
