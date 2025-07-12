@@ -32,7 +32,7 @@ SOFTWARE.
 
 #include <sstream>
 
-#include <stb_image_write.h>
+// #include <stb_image_write.h>
 
 #ifdef _MSC_VER
 #pragma warning(push)
