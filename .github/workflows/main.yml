@@ -111,7 +111,7 @@ jobs:
       
       - name: Create Project Binary
         shell: cmd
-        run: call .\xatlas_src\bin\premake5.exe --file=.\xatlas_src\premake5.lua vs2019
+        run: call .\xatlas_src\bin\premake5.exe --file=.\xatlas_src\premake5.lua vs2022
         
 
       - name: Build Binary
