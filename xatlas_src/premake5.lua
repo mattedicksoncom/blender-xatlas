@@ -16,7 +16,7 @@ newoption
 	description = "Enable Clang UndefinedBehaviorSanitizer"
 }
 
-dofile("extra/shaders.lua")
+-- dofile("extra/shaders.lua")
 
 if _ACTION == nil then
 	return
