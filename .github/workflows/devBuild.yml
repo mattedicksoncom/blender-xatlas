@@ -40,28 +40,29 @@ jobs:
         uses: actions/checkout@v2
         with:
           ref: 'dev'
-      - name: Setup Project 1
+
+      - name: Update Pakcages
         run: sudo apt-get update -qq
-      - name: Setup Project 2
+
+      - name: Install Deps
         run: sudo apt-get install libgl1-mesa-dev libgtk-3-dev xorg-dev
       
-      - name: install
+      - name: Download Premake
         run: wget https://github.com/premake/premake-core/releases/download/v5.0.0-alpha13/premake-5.0.0-alpha13-linux.tar.gz -O premake.tar.gz
-      - name: install2
+
+      - name: Extract Premake
         run: tar -xf premake.tar.gz
-      - name: install3
+
+      - name: Run Initial Setup
         run: ./premake5 --cc=gcc --file=./xatlas_src/premake5.lua gmake 
-      - name: install4
+
+      - name: go to the folder for no reason
         run: cd ./xatlas_src/build/gmake_gcc
-      - name: install5
+
+      - name: Run Make
         run: |
           cd ./xatlas_src/build/gmake_gcc
           make
-#       - name: check folder
-#         run: |
-#           cd ./xatlas_src/build/gmake_gcc/bin/x86_64/Release
-#           ls
-          
           
       - name: copy file
         run: |
