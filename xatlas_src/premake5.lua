@@ -1,3 +1,5 @@
+local THIRDPARTY_DIR = "thirdparty"
+
 newoption
 {
 	trigger = "asan",
@@ -15,8 +17,6 @@ newoption
 	trigger = "ubsan",
 	description = "Enable Clang UndefinedBehaviorSanitizer"
 }
-
--- dofile("extra/shaders.lua")
 
 if _ACTION == nil then
 	return
@@ -95,5 +95,32 @@ project "xatlas"
 	warnings "Extra"
 	files { "xatlas.cpp", "xatlas.h" }
 	sanitizer()
+
+project "xatlas-blender"
+	kind "ConsoleApp"
+	language "C++"
+	cppdialect "C++11"
+	exceptionhandling "Off"
+	rtti "Off"
+	warnings "Extra"
+	sanitizer()
+	files "xatlas-blender.cpp"	
+	includedirs(THIRDPARTY_DIR)
+	links { "tiny_obj_loader", "xatlas" }
+	filter "action:vs*"
+		files "xatlas.natvis"
+		postbuildcommands {
+			'xcopy /y \"$(OutDir)$(TargetName)$(TargetExt)\" \"$(ProjectDir)..\\..\\..\\addons\\blender_xatlas\\xatlas\"'
+		}
+	filter "system:linux"
+		links { "pthread" }
+
+group "thirdparty"
 	
-dofile("extra/projects.lua")
+project "tiny_obj_loader"
+	kind "StaticLib"
+	language "C++"
+	exceptionhandling "Off"
+	rtti "Off"
+	sanitizer()
+	files(path.join(THIRDPARTY_DIR, "tiny_obj_loader.*"))
